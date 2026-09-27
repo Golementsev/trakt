@@ -1,6 +1,7 @@
 {
   "name": "trakt",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/shared",
