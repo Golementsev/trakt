@@ -1,21 +1,30 @@
+import { useState } from 'react';
+import type { ProjectSummary } from '@trakt/shared';
 import { plural } from '../lib/plural';
 
-export interface SidebarProject {
-  id: string;
-  name: string;
-  key: string;
-  taskCount: number;
-}
-
 interface Props {
-  projects: SidebarProject[];
-  currentId: string;
+  projects: ProjectSummary[];
+  currentId: string | null;
+  onSelect: (id: string) => void;
+  onCreate: (name: string) => Promise<void>;
   agentsOn: boolean;
   /** Сколько незакрытых задач ведёт агент в текущем проекте. */
   agentTaskCount: number;
 }
 
-export function Sidebar({ projects, currentId, agentsOn, agentTaskCount: n }: Props) {
+export function Sidebar({ projects, currentId, onSelect, onCreate, agentsOn, agentTaskCount: n }: Props) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const v = name.trim();
+    if (!v) return;
+    await onCreate(v);
+    setName('');
+    setAdding(false);
+  };
+
   return (
     <aside className="side">
       <div className="brand">
@@ -28,16 +37,34 @@ export function Sidebar({ projects, currentId, agentsOn, agentTaskCount: n }: Pr
         <h4>Проекты</h4>
         <div className="plist">
           {projects.map((p) => (
-            <button key={p.id} className={`pitem ${p.id === currentId ? 'on' : ''}`}>
+            <button
+              key={p.id}
+              className={`pitem ${p.id === currentId ? 'on' : ''}`}
+              onClick={() => onSelect(p.id)}
+            >
               <span className="pkey">{p.key}</span>
               {p.name}
               <span className="pcount">{p.taskCount}</span>
             </button>
           ))}
         </div>
-        <button className="ghost" style={{ marginTop: 6 }}>
-          + Новый проект
-        </button>
+        {adding ? (
+          <form className="newproj" onSubmit={(e) => void submit(e)}>
+            <input
+              className="in"
+              autoFocus
+              placeholder="Название проекта"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setAdding(false)}
+            />
+            <button className="btn sm pri">ОК</button>
+          </form>
+        ) : (
+          <button className="ghost" style={{ marginTop: 6 }} onClick={() => setAdding(true)}>
+            + Новый проект
+          </button>
+        )}
       </div>
       <div className="agentbox">
         <b>
