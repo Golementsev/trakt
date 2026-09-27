@@ -99,6 +99,11 @@ export function createApp({ ctx, webDist, connect, runner, ai, agents, registry 
   api.patch('/projects/:id', async (c) =>
     c.json(d.updateProject(ctx, c.req.param('id'), await body(c, updateProjectInput))),
   );
+  api.delete('/projects/:id', (c) => {
+    runner?.stopProject(c.req.param('id'));
+    d.deleteProject(ctx, c.req.param('id'), you);
+    return c.json({ ok: true });
+  });
   api.get('/projects/:id/board', (c) => c.json(d.getBoard(ctx, c.req.param('id'))));
   api.get('/projects/:id/events', (c) => {
     const limit = Math.min(Number(c.req.query('limit')) || 50, 500);

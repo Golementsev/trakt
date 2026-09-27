@@ -82,6 +82,7 @@ trakt/
 GET    /api/projects
 POST   /api/projects                         {name}
 PATCH  /api/projects/:id                     {name, repoPath, ...}
+DELETE /api/projects/:id                     проект со всеми задачами; прогоны останавливаются
 GET    /api/projects/:id/board               → статусы, типы, шаблоны, воркфлоу, задачи (кратко)
 POST   /api/projects/:id/statuses            {name, afterStatusId?}
 PATCH  /api/statuses/:id                     {name?, color?, category?}

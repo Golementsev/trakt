@@ -187,6 +187,11 @@ export function App() {
           tab={settingsTab}
           onTab={setSettingsTab}
           onClose={() => setSettingsTab(null)}
+          onDeleted={() => {
+            setSettingsTab(null);
+            setStoredProject(null);
+            toast('Проект удалён');
+          }}
           onOpenAgents={() => {
             setSettingsTab(null);
             selectView('agents');

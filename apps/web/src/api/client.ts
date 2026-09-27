@@ -81,6 +81,7 @@ export const api = {
   projects: () => get<ProjectSummary[]>('/projects'),
   createProject: (name: string) => post<Project>('/projects', { name }),
   updateProject: (id: string, b: UpdateProjectInput) => patch<Project>(`/projects/${id}`, b),
+  deleteProject: (id: string) => del<{ ok: true }>(`/projects/${id}`),
   board: (id: string) => get<Board>(`/projects/${id}/board`),
   events: (id: string, limit = 50) => get<BoardEvent[]>(`/projects/${id}/events?limit=${limit}`),
 

@@ -256,3 +256,18 @@ export function updateAgentSettings(ctx: Ctx, projectId: string, input: UpdateAg
   notify(ctx, { projectId, actor: 'you', kind: 'agent.settings' });
   return getAgentSettings(ctx, projectId);
 }
+
+/**
+ * Удалить проект целиком: задачи, статусы, типы, идеи, ленту.
+ * Прогоны агента по задачам проекта останавливает вызывающий (runner.stopProject).
+ */
+export function deleteProject(ctx: Ctx, id: string, actor: Actor = 'you') {
+  getProjectRow(ctx, id);
+  ctx.db.tx(() => {
+    // задачи ссылаются на статусы и типы без каскада — убираем их первыми
+    ctx.db.run('DELETE FROM tasks WHERE project_id = ?', id);
+    ctx.db.run('DELETE FROM ideas WHERE project_id = ?', id);
+    ctx.db.run('DELETE FROM projects WHERE id = ?', id);
+  });
+  notify(ctx, { projectId: null, actor, kind: 'project.deleted' });
+}

@@ -200,6 +200,17 @@ export class Runner {
     }
   }
 
+  /** Проект удаляют: снять его очередь и остановить его прогоны. */
+  stopProject(projectId: string) {
+    for (let i = this.queue.length - 1; i >= 0; i--)
+      if (this.queue[i]!.projectId === projectId) this.queue.splice(i, 1);
+    for (const a of this.active.values()) {
+      if (a.projectId !== projectId) continue;
+      a.stopped = true;
+      killTree(a.child);
+    }
+  }
+
   /** Фоновая раздача: агент сам берёт задачи из второго статуса («К работе»). */
   autoTakeTick() {
     if (d.getAppSettings(this.ctx).agentsPaused) return;

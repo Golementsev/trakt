@@ -48,6 +48,14 @@ describe('http api', () => {
     expect((await read(denied)).error).toContain('запрещён воркфлоу');
   });
 
+  it('deletes a project', async () => {
+    const { app } = makeApp();
+    const p = await read(app.request('/api/projects', json('POST', { name: 'Тест' })));
+    expect((await app.request(`/api/projects/${p.id}`, { method: 'DELETE' })).status).toBe(200);
+    expect(await read(app.request('/api/projects'))).toEqual([]);
+    expect((await app.request(`/api/projects/${p.id}`, { method: 'DELETE' })).status).toBe(404);
+  });
+
   it('publishes live messages on mutations', async () => {
     const { app, ctx } = makeApp();
     const got: LiveMessage[] = [];

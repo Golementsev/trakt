@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Board, FieldKind, StatusCategory } from '@trakt/shared';
 import { api } from '../api/client';
 import { refreshProject } from '../api/queries';
+import { plural } from '../lib/plural';
 import { run } from '../lib/toast';
 import { AgentLaunch } from './AgentLaunch';
 import { Editable } from './Editable';
@@ -37,12 +38,22 @@ interface Props {
   onClose: () => void;
   /** Перейти на страницу «Агенты» (источники агентов — там). */
   onOpenAgents: () => void;
+  /** Проект удалён — закрыть окно и перейти к другому. */
+  onDeleted: () => void;
 }
 
-export function Settings({ board, tab, onTab, onClose, onOpenAgents }: Props) {
+export function Settings({ board, tab, onTab, onClose, onOpenAgents, onDeleted }: Props) {
   const pid = board.project.id;
   const [tplType, setTplType] = useState<string | null>(null);
   const typeForTpl = board.types.find((t) => t.id === tplType) ?? board.types[0];
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const taskCount = board.tasks.length;
+
+  const deleteProject = async () => {
+    if (!(await run(api.deleteProject(pid)))) return;
+    refreshProject(null);
+    onDeleted();
+  };
 
   /** Выполнить изменение и перечитать доску. */
   const act = async (p: Promise<unknown>) => {
@@ -77,9 +88,29 @@ export function Settings({ board, tab, onTab, onClose, onOpenAgents }: Props) {
         <div className="mhead">
           <h2>Настройки · {board.project.name}</h2>
           <span className="spacer" />
-          <button className="btn pri sm" onClick={onClose}>
-            Готово
-          </button>
+          {confirmDelete ? (
+            <>
+              <span className="hint">
+                Удалить проект
+                {taskCount ? ` и ${taskCount} ${plural(taskCount, 'задачу', 'задачи', 'задач')}` : ''}?
+              </span>
+              <button className="btn danger sm" onClick={() => void deleteProject()}>
+                Удалить
+              </button>
+              <button className="btn sm" onClick={() => setConfirmDelete(false)}>
+                Отмена
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn quiet sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="i sm" /> Удалить проект
+              </button>
+              <button className="btn pri sm" onClick={onClose}>
+                Готово
+              </button>
+            </>
+          )}
         </div>
         <div className="mwrap">
           <nav className="mtabs">
