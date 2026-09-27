@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.1",
     "hono": "^4.13.9",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
     "tsx": "^4.23.15"
+  },
+  "bin": {
+    "trakt-mcp": "dist/trakt-mcp.js"
   }
 }

@@ -23,12 +23,21 @@ import {
   type LiveMessage,
 } from '@trakt/shared';
 import * as d from '../domain';
+import { mcpHandler } from '../mcp/http';
+import { localOnly } from './guard';
 import { serveWeb } from './static';
 
 export interface AppOptions {
   ctx: d.Ctx;
   /** Папка собранного фронта. Если нет — статику не отдаём (dev, тесты). */
   webDist?: string;
+  /** Как подключить агента: адрес MCP и команда stdio-входа (для «Настройки → Агент»). */
+  connect?: () => AgentConnectInfo;
+}
+
+export interface AgentConnectInfo {
+  httpUrl: string;
+  stdio: { command: string; args: string[]; built: boolean };
 }
 
 async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer<S>> {
@@ -36,8 +45,9 @@ async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer
   return schema.parse(raw);
 }
 
-export function createApp({ ctx, webDist }: AppOptions) {
+export function createApp({ ctx, webDist, connect }: AppOptions) {
   const app = new Hono();
+  app.use('*', localOnly);
   const api = new Hono();
   const you = ACTOR_YOU;
 
@@ -49,6 +59,7 @@ export function createApp({ ctx, webDist }: AppOptions) {
   });
 
   api.get('/health', (c) => c.json({ ok: true }));
+  api.get('/agent/connect', (c) => c.json(connect?.() ?? null));
 
   // глобальные настройки
   api.get('/settings', (c) => c.json(d.getAppSettings(ctx)));
@@ -169,6 +180,9 @@ export function createApp({ ctx, webDist }: AppOptions) {
 
   api.all('*', (c) => c.json({ error: 'Не найдено' }, 404));
   app.route('/api', api);
+
+  // MCP для агентов (Streamable HTTP)
+  app.all('/mcp', mcpHandler(ctx));
 
   if (webDist) app.get('*', serveWeb(webDist));
 
