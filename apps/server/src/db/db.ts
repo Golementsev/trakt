@@ -1,14 +1,18 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import type { DatabaseSync as DatabaseSyncType, SQLInputValue } from 'node:sqlite';
 import { MIGRATIONS } from './migrations';
+
+// Встроенный node:sqlite берём через getBuiltinModule: сборщик (esbuild) не знает этот модуль
+// и переписывает 'node:sqlite' в несуществующий пакет 'sqlite'.
+const { DatabaseSync } = process.getBuiltinModule('node:sqlite') as typeof import('node:sqlite');
 
 export type Param = SQLInputValue;
 export type Row = Record<string, unknown>;
 
 /** Тонкая обёртка над node:sqlite: синхронные запросы, транзакции, миграции. */
 export class Db {
-  readonly raw: DatabaseSync;
+  readonly raw: DatabaseSyncType;
   private txDepth = 0;
 
   constructor(path: string) {

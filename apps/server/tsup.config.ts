@@ -4,7 +4,7 @@ export default defineConfig({
   entry: { index: 'src/index.ts', 'trakt-mcp': 'src/bin/trakt-mcp.ts' },
   format: 'esm',
   platform: 'node',
-  target: 'node20',
+  target: 'node22',
   outDir: 'dist',
   clean: true,
   sourcemap: true,
