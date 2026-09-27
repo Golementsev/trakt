@@ -8,7 +8,7 @@
     "apps/web"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "scripts": {
     "dev": "concurrently -k -n server,web -c green,blue \"npm run dev -w @trakt/server\" \"npm run dev -w @trakt/web\"",
@@ -19,7 +19,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "seed": "npm run seed -w @trakt/server"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
