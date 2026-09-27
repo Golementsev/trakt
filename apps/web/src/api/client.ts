@@ -11,6 +11,8 @@ import type {
   MoveTaskInput,
   Project,
   ProjectSummary,
+  AiStatus,
+  Idea,
   RunInfo,
   Status,
   Subtask,
@@ -109,4 +111,13 @@ export const api = {
   runTask: (taskId: string) => post<RunInfo[]>(`/tasks/${taskId}/run`),
   runSubtask: (subtaskId: string) => post<RunInfo>(`/subtasks/${subtaskId}/run`),
   stopRun: (runId: string) => post<{ ok: true }>(`/runs/${runId}/stop`),
+
+  aiStatus: () => get<AiStatus>('/ai'),
+  aiSplit: (title: string, description: string) =>
+    post<{ subtasks: string[] }>('/ai/split', { title, description }),
+  splitTask: (taskId: string) => post<TaskDetail>(`/tasks/${taskId}/split`),
+  ideas: (projectId: string) => get<Idea[]>(`/projects/${projectId}/ideas`),
+  createIdea: (projectId: string, text: string, aiText: string | null) =>
+    post<Idea>(`/projects/${projectId}/ideas`, { text, aiText }),
+  deleteIdea: (id: string) => del<{ ok: true }>(`/ideas/${id}`),
 };

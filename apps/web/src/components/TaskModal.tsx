@@ -311,6 +311,7 @@ export function TaskModal({ board, taskId, draft: init, closeSignal, onClose, on
         <Subtasks
           task={task ?? null}
           draftTitles={draft.subtasks}
+          draftSource={{ title: draft.title, description: draft.description }}
           onDraftAdd={(title) => setDraft((d) => ({ ...d, subtasks: [...d.subtasks, title] }))}
           projectId={pid}
         />
@@ -480,14 +481,18 @@ function Subtasks({
   task,
   draftTitles,
   onDraftAdd,
+  draftSource,
   projectId,
 }: {
   task: TaskDetail | null;
   draftTitles: string[];
   onDraftAdd: (title: string) => void;
+  /** Заголовок и описание черновика — для «✦ Разбить с AI» до создания задачи. */
+  draftSource: { title: string; description: string };
   projectId: string;
 }) {
   const [title, setTitle] = useState('');
+  const [splitting, setSplitting] = useState(false);
   const taskId = task?.id ?? null;
   const runs = task?.runs ?? [];
   const rows: Array<Pick<Subtask, 'title' | 'done' | 'state' | 'log'> & { id: string }> =
@@ -515,6 +520,16 @@ function Subtasks({
     refreshProject(projectId);
   };
 
+  const split = async () => {
+    setSplitting(true);
+    if (taskId) await act(api.splitTask(taskId));
+    else {
+      const res = await run(api.aiSplit(draftSource.title, draftSource.description));
+      res?.subtasks.forEach(onDraftAdd);
+    }
+    setSplitting(false);
+  };
+
   return (
     <div className="sect">
       <h3>
@@ -523,6 +538,9 @@ function Subtasks({
           {done}/{rows.length}
         </span>
         <span className="sp" />
+        <button className="btn sm agent" disabled={splitting} onClick={() => void split()}>
+          {splitting ? '✦ Думаю…' : '✦ Разбить с AI'}
+        </button>
         {canRunAll && (
           <button className="btn sm" onClick={() => void act(api.runTask(taskId))}>
             ▶ Все агенту
@@ -555,7 +573,7 @@ function Subtasks({
           ))
         ) : (
           <div className="srow">
-            <span className="hint">Сабтасок пока нет. Добавьте вручную.</span>
+            <span className="hint">Сабтасок пока нет. Добавьте вручную или разбейте задачу с AI.</span>
           </div>
         )}
       </div>

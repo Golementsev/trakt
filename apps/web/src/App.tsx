@@ -13,8 +13,12 @@ import { Board } from './components/Board';
 import { TaskModal, type DraftInit } from './components/TaskModal';
 import { Settings, type SettingsTab } from './components/Settings';
 import { Feed } from './components/Feed';
+import { IdeaFab } from './components/IdeaFab';
 
-type Open = { kind: 'task'; id: string } | { kind: 'draft'; init: DraftInit } | null;
+type Open = { kind: 'task'; id: string } | { kind: 'draft'; init: DraftInit; n: number } | null;
+
+/** Черновик каждый раз новый (n — чтобы окно пересоздалось с новыми данными). */
+const draft = (init: DraftInit): Open => ({ kind: 'draft', init, n: Date.now() });
 
 export function App() {
   const projects = useProjects();
@@ -32,6 +36,7 @@ export function App() {
   const [closeSignal, setCloseSignal] = useState(0);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [feedOpen, setFeedOpen] = useState(false);
+  const [ideaOpen, setIdeaOpen] = useState(false);
 
   // карточки, которые недавно поменял агент или только что создали, мигают
   const [flash, setFlash] = useState<ReadonlySet<string>>(new Set());
@@ -62,10 +67,11 @@ export function App() {
       if (settingsTab) setSettingsTab(null);
       else if (open) setCloseSignal((n) => n + 1);
       else if (feedOpen) setFeedOpen(false);
+      else if (ideaOpen) setIdeaOpen(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [settingsTab, open, feedOpen]);
+  }, [settingsTab, open, feedOpen, ideaOpen]);
 
   const selectProject = (id: string) => {
     setStoredProject(id);
@@ -120,7 +126,7 @@ export function App() {
                 onAgentsToggle={() => void toggleAgents()}
                 onFeed={() => setFeedOpen(true)}
                 onSettings={() => setSettingsTab('statuses')}
-                onNewTask={() => setOpen({ kind: 'draft', init: {} })}
+                onNewTask={() => setOpen(draft({}))}
               />
               <Ticker event={events.data?.[0]} />
               <Board
@@ -128,7 +134,7 @@ export function App() {
                 lane={lane}
                 flash={flash}
                 onOpen={(id) => setOpen({ kind: 'task', id })}
-                onNew={(statusId) => setOpen({ kind: 'draft', init: { statusId } })}
+                onNew={(statusId) => setOpen(draft({ statusId }))}
               />
             </>
           ) : (
@@ -142,7 +148,7 @@ export function App() {
 
       {open && b && (
         <TaskModal
-          key={open.kind === 'task' ? open.id : 'draft'}
+          key={open.kind === 'task' ? open.id : `draft-${open.n}`}
           board={b}
           taskId={open.kind === 'task' ? open.id : null}
           draft={open.kind === 'draft' ? open.init : null}
@@ -159,6 +165,15 @@ export function App() {
       )}
       {feedOpen && b && (
         <Feed projectName={b.project.name} events={events.data ?? []} onClose={() => setFeedOpen(false)} />
+      )}
+      {b && (
+        <IdeaFab
+          projectId={b.project.id}
+          projectName={b.project.name}
+          open={ideaOpen}
+          onOpenChange={setIdeaOpen}
+          onToTask={(title, description) => setOpen(draft({ title, description }))}
+        />
       )}
       <Toast />
     </>
