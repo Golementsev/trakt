@@ -38,7 +38,15 @@ describe('createProject', () => {
     ]);
 
     const agent = getAgentSettings(ctx, projectId);
-    expect(agent).toEqual({ canMove: true, maxStatusId: statuses[3]!.id, autoTake: false, canCreate: false });
+    expect(agent).toEqual({
+      canMove: true,
+      maxStatusId: statuses[3]!.id,
+      autoTake: false,
+      canCreate: false,
+      runCommand: null,
+      useWorktree: false,
+      maxParallel: 1,
+    });
   });
 
   it('forbids jumping from the first two statuses straight to done', () => {

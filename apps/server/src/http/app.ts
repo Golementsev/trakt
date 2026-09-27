@@ -21,9 +21,11 @@ import {
   updateTaskInput,
   updateTypeInput,
   type LiveMessage,
+  type TaskDetail,
 } from '@trakt/shared';
 import * as d from '../domain';
 import { mcpHandler } from '../mcp/http';
+import type { Runner } from '../runner/runner';
 import { localOnly } from './guard';
 import { serveWeb } from './static';
 
@@ -33,6 +35,8 @@ export interface AppOptions {
   webDist?: string;
   /** Как подключить агента: адрес MCP и команда stdio-входа (для «Настройки → Агент»). */
   connect?: () => AgentConnectInfo;
+  /** Запуск агентов кнопкой «▶ Агент». Без него (тесты) — только ручная доска и MCP. */
+  runner?: Runner;
 }
 
 export interface AgentConnectInfo {
@@ -45,7 +49,7 @@ async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer
   return schema.parse(raw);
 }
 
-export function createApp({ ctx, webDist, connect }: AppOptions) {
+export function createApp({ ctx, webDist, connect, runner }: AppOptions) {
   const app = new Hono();
   app.use('*', localOnly);
   const api = new Hono();
@@ -119,18 +123,51 @@ export function createApp({ ctx, webDist, connect }: AppOptions) {
   );
 
   // задачи
-  api.post('/projects/:id/tasks', async (c) =>
-    c.json(d.createTask(ctx, c.req.param('id'), await body(c, createTaskInput), you), 201),
-  );
-  api.get('/tasks/:id', (c) => c.json(d.getTaskDetail(ctx, c.req.param('id'))));
-  api.patch('/tasks/:id', async (c) =>
-    c.json(d.updateTask(ctx, c.req.param('id'), await body(c, updateTaskInput), you)),
-  );
-  api.post('/tasks/:id/move', async (c) =>
-    c.json(d.moveTask(ctx, c.req.param('id'), await body(c, moveTaskInput), you)),
-  );
+  /** Задачу отдали агенту / забрали — раннер запускает или останавливает прогоны. */
+  const ownershipChanged = (taskId: string, before: boolean, after: boolean | undefined) => {
+    if (!runner || after === undefined || after === before) return;
+    if (after) runner.handOver(taskId);
+    else runner.stopTask(taskId);
+  };
+  const withRuns = (t: TaskDetail): TaskDetail => ({ ...t, runs: runner?.runsForTask(t.id) ?? [] });
+
+  api.post('/projects/:id/tasks', async (c) => {
+    const t = d.createTask(ctx, c.req.param('id'), await body(c, createTaskInput), you);
+    ownershipChanged(t.id, false, t.agentOwned);
+    return c.json(withRuns(d.getTaskDetail(ctx, t.id)), 201);
+  });
+  api.get('/tasks/:id', (c) => c.json(withRuns(d.getTaskDetail(ctx, c.req.param('id')))));
+  api.patch('/tasks/:id', async (c) => {
+    const id = c.req.param('id');
+    const before = d.getTaskCard(ctx, id).agentOwned;
+    const input = await body(c, updateTaskInput);
+    d.updateTask(ctx, id, input, you);
+    ownershipChanged(id, before, input.agentOwned);
+    return c.json(withRuns(d.getTaskDetail(ctx, id)));
+  });
+  api.post('/tasks/:id/move', async (c) => {
+    const id = c.req.param('id');
+    const before = d.getTaskCard(ctx, id).agentOwned;
+    const input = await body(c, moveTaskInput);
+    const card = d.moveTask(ctx, id, input, you);
+    ownershipChanged(id, before, input.agentOwned);
+    return c.json(card);
+  });
   api.delete('/tasks/:id', (c) => {
+    runner?.stopTask(c.req.param('id'));
     d.deleteTask(ctx, c.req.param('id'), you);
+    return c.json({ ok: true });
+  });
+
+  // прогоны агента (push)
+  const needRunner = () => {
+    if (!runner) throw d.invalid('Запуск агентов недоступен');
+    return runner;
+  };
+  api.post('/tasks/:id/run', (c) => c.json(needRunner().runTask(c.req.param('id'))));
+  api.post('/subtasks/:id/run', (c) => c.json(needRunner().runSubtask(c.req.param('id'))));
+  api.post('/runs/:id/stop', (c) => {
+    needRunner().stopRun(c.req.param('id'));
     return c.json({ ok: true });
   });
 

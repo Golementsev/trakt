@@ -53,6 +53,12 @@ export interface AgentSettings {
   maxStatusId: string | null;
   autoTake: boolean;
   canCreate: boolean;
+  /** Шаблон команды запуска агента (кнопка «▶ Агент»). Промпт приходит в stdin. */
+  runCommand: string | null;
+  /** Каждой задаче — свой git worktree. */
+  useWorktree: boolean;
+  /** Сколько агентов одновременно работают в проекте. */
+  maxParallel: number;
 }
 
 export type FieldValue = string | number | boolean | null;
@@ -111,11 +117,23 @@ export interface BoardEvent {
   at: string;
 }
 
+/** Прогон агента, запущенный доской (push). */
+export interface RunInfo {
+  id: string;
+  subtaskId: string | null;
+  status: 'queued' | 'running';
+  agentName: string;
+}
+
 export interface TaskDetail extends Omit<TaskCard, 'subtasks'> {
   projectId: string;
   description: string;
   fields: Record<string, FieldValue>;
   subtasks: Subtask[];
+  /** Лог прогонов агента по задаче целиком (без сабтаски). */
+  taskLog: LogLine[];
+  /** Активные и ожидающие прогоны (заполняет сервер). */
+  runs: RunInfo[];
   history: BoardEvent[];
   createdAt: string;
   updatedAt: string;

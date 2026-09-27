@@ -218,6 +218,9 @@ interface AgentRow {
   max_status_id: string | null;
   auto_take: number;
   can_create: number;
+  run_command: string | null;
+  use_worktree: number;
+  max_parallel: number;
 }
 
 export function getAgentSettings(ctx: Ctx, projectId: string): AgentSettings {
@@ -228,6 +231,9 @@ export function getAgentSettings(ctx: Ctx, projectId: string): AgentSettings {
     maxStatusId: r.max_status_id,
     autoTake: bool(r.auto_take),
     canCreate: bool(r.can_create),
+    runCommand: r.run_command,
+    useWorktree: bool(r.use_worktree),
+    maxParallel: r.max_parallel,
   };
 }
 
@@ -244,6 +250,9 @@ export function updateAgentSettings(ctx: Ctx, projectId: string, input: UpdateAg
   if (input.maxStatusId !== undefined) set('max_status_id', input.maxStatusId);
   if (input.autoTake !== undefined) set('auto_take', input.autoTake ? 1 : 0);
   if (input.canCreate !== undefined) set('can_create', input.canCreate ? 1 : 0);
+  if (input.runCommand !== undefined) set('run_command', input.runCommand?.trim() || null);
+  if (input.useWorktree !== undefined) set('use_worktree', input.useWorktree ? 1 : 0);
+  if (input.maxParallel !== undefined) set('max_parallel', input.maxParallel);
   notify(ctx, { projectId, actor: 'you', kind: 'agent.settings' });
   return getAgentSettings(ctx, projectId);
 }

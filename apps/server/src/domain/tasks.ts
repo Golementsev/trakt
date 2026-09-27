@@ -121,6 +121,11 @@ export function getTaskDetail(ctx: Ctx, id: string): TaskDetail {
     // значения полей текущего типа (после смены типа старые не показываем)
     fields: Object.fromEntries(Object.entries(values).filter(([k]) => typeFields.has(k))),
     subtasks: listSubtasks(ctx, id),
+    taskLog: ctx.db.all<{ text: string; at: string }>(
+      'SELECT l.text, l.at FROM run_log_lines l JOIN runs r ON r.id = l.run_id WHERE r.task_id = ? AND l.subtask_id IS NULL ORDER BY l.id',
+      id,
+    ),
+    runs: [],
     history: listTaskEvents(ctx, id),
     createdAt: row.created_at,
     updatedAt: row.updated_at,

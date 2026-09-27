@@ -46,6 +46,9 @@ export const updateAgentSettingsInput = z.object({
   maxStatusId: z.string().nullable().optional(),
   autoTake: z.boolean().optional(),
   canCreate: z.boolean().optional(),
+  runCommand: z.string().max(2000).nullable().optional(),
+  useWorktree: z.boolean().optional(),
+  maxParallel: z.number().int().min(1).max(8).optional(),
 });
 
 const fields = z.record(z.string(), fieldValue);
