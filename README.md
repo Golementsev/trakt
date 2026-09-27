@@ -46,3 +46,10 @@ apps/web         React + Vite (UI по макету), TanStack Query + SSE
 apps/server      Hono: REST /api, SSE /api/events, MCP /mcp; вся логика — в src/domain
 packages/shared  общие типы ответов, zod-схемы входных данных, значения по умолчанию
 ```
+
+## AI-функции доски
+
+«✦ Разбить с AI» (в окне задачи и в черновике) и кнопка «+» справа снизу (мысль → идея с AI → «Сделать задачей»).
+Источник модели выбирается сам: `ANTHROPIC_API_KEY` в `.env` → Anthropic API; иначе установленный и авторизованный
+Claude Code (`claude -p`); иначе кнопки показывают, что сделать. Переключатель — `TRAKT_AI=api|cli|off`,
+см. [`.env.example`](.env.example). Остальная доска от AI не зависит.
