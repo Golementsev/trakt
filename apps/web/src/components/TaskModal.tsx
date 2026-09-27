@@ -525,11 +525,7 @@ function Subtasks({
                 onChange={(e) => void toggle(s.id, e.target.checked)}
               />
               <span className="st">{s.title}</span>
-              {taskId && s.done && (
-                <span className="hint" style={{ fontSize: 12 }}>
-                  готово
-                </span>
-              )}
+              <SubtaskState state={s.state} done={s.done} show={!!taskId} />
               {s.log.length > 0 && (
                 <div className="log">
                   {s.log.map((l, i) => (
@@ -558,6 +554,30 @@ function Subtasks({
       </form>
     </div>
   );
+}
+
+function SubtaskState({ state, done, show }: { state: Subtask['state']; done: boolean; show: boolean }) {
+  if (!show) return null;
+  if (state === 'running')
+    return (
+      <span className="working" style={{ marginLeft: 0 }}>
+        <span className="dot live" />
+        агент работает
+      </span>
+    );
+  if (state === 'failed')
+    return (
+      <span className="hint" style={{ fontSize: 12, color: 'var(--danger)' }}>
+        не вышло
+      </span>
+    );
+  if (done)
+    return (
+      <span className="hint" style={{ fontSize: 12 }}>
+        готово
+      </span>
+    );
+  return null;
 }
 
 function History({ task }: { task: TaskDetail }) {

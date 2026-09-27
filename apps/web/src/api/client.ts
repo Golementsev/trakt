@@ -25,6 +25,12 @@ import type {
   UpdateTypeInput,
 } from '@trakt/shared';
 
+/** Как подключить агента к доске (адрес MCP, stdio-команда). */
+export interface AgentConnectInfo {
+  httpUrl: string;
+  stdio: { command: string; args: string[]; built: boolean };
+}
+
 /** Ошибка от сервера: сообщение уже человекочитаемое, показываем как есть. */
 export class ApiError extends Error {
   constructor(
@@ -62,6 +68,7 @@ const del = <T>(url: string) => request<T>('DELETE', url);
 
 export const api = {
   settings: () => get<AppSettings>('/settings'),
+  agentConnect: () => get<AgentConnectInfo | null>('/agent/connect'),
   updateSettings: (b: Partial<AppSettings>) => put<AppSettings>('/settings', b),
 
   projects: () => get<ProjectSummary[]>('/projects'),

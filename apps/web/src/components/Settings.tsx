@@ -3,6 +3,7 @@ import type { Board, FieldKind, StatusCategory } from '@trakt/shared';
 import { api } from '../api/client';
 import { refreshProject } from '../api/queries';
 import { run } from '../lib/toast';
+import { AgentConnect } from './AgentConnect';
 import { Editable } from './Editable';
 
 export type SettingsTab = 'statuses' | 'types' | 'tpl' | 'wf' | 'agent';
@@ -424,6 +425,7 @@ function AgentTab({ board, act }: { board: Board; act: Act }) {
           Может создавать задачи
         </label>
       </div>
+      <AgentConnect />
     </>
   );
 }

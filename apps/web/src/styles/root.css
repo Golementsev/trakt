@@ -5,3 +5,23 @@
 body {
   margin: 0;
 }
+/* страница целиком никогда не прокручивается (скроллятся доска и окна);
+   clip, в отличие от hidden, не даёт прокрутить её и программно — фокусом или scrollIntoView */
+html,
+body {
+  overflow: clip;
+}
+
+/* Сниппеты подключения агента (в макете их не было — в стиле блока лога) */
+.snippet {
+  margin: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 12px/1.55 var(--mono);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}

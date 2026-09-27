@@ -23,10 +23,20 @@ npm run build && npm start   # один процесс на http://127.0.0.1:470
 База — `data/trakt.db` (в `.gitignore`). Переменные: `TRAKT_PORT` — порт сервера, `TRAKT_DB` — путь к базе.
 Сервер слушает только `127.0.0.1`, авторизации нет.
 
+## Подключить агента
+
+Доска — MCP-сервер, подойдёт любой агент в любом харнесе. Готовые сниппеты для Claude Code,
+Codex, Cursor и общий JSON — в «Настройки → Агент». Коротко:
+
+- Streamable HTTP: `http://127.0.0.1:4700/mcp` (например, `claude mcp add --transport http trakt http://127.0.0.1:4700/mcp`);
+- stdio (после `npm run build`): `node apps/server/dist/trakt-mcp.js` — прокси к тому же серверу, доска должна быть запущена.
+
+Дальше скажите агенту «возьми PAY-12 с доски Тракт». Контракт инструментов — [`docs/MCP.md`](docs/MCP.md).
+
 ## Структура
 
 ```
 apps/web         React + Vite (UI по макету), TanStack Query + SSE
-apps/server      Hono: REST /api, SSE /api/events; вся логика — в src/domain
+apps/server      Hono: REST /api, SSE /api/events, MCP /mcp; вся логика — в src/domain
 packages/shared  общие типы ответов, zod-схемы входных данных, значения по умолчанию
 ```
