@@ -76,6 +76,15 @@ export function Sidebar({ projects, currentId, onSelect, onCreate, agentsOn, age
           готовности.
         </span>
       </div>
+      <a
+        className="lbl"
+        href="/api/export"
+        download
+        style={{ marginTop: 'auto' }}
+        title="Все проекты, задачи и лента одним файлом"
+      >
+        Скачать копию доски (JSON)
+      </a>
     </aside>
   );
 }

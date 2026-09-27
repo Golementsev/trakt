@@ -4,10 +4,14 @@ import { Avatar } from './Avatar';
 import { EventText } from './EventText';
 
 /** Строка под шапкой: последнее событие проекта. */
-export function Ticker({ event: e }: { event: BoardEvent | undefined }) {
+export function Ticker({ event: e, offline }: { event: BoardEvent | undefined; offline?: boolean }) {
   return (
     <div className="ticker">
-      {e ? (
+      {offline ? (
+        <span className="txt" style={{ color: 'var(--danger)' }}>
+          Нет связи с доской — переподключаюсь… Проверьте, что сервер запущен (npm start).
+        </span>
+      ) : e ? (
         <>
           <Avatar agent={!isYou(e.actor)} name={actorName(e.actor)} small />
           <span className="txt">

@@ -56,7 +56,7 @@ export function App() {
     );
   }, []);
 
-  useLiveUpdates((m: LiveMessage) => {
+  const connected = useLiveUpdates((m: LiveMessage) => {
     if (m.taskId && !isYou(m.actor)) flashTask(m.taskId);
   });
 
@@ -128,7 +128,7 @@ export function App() {
                 onSettings={() => setSettingsTab('statuses')}
                 onNewTask={() => setOpen(draft({}))}
               />
-              <Ticker event={events.data?.[0]} />
+              <Ticker event={events.data?.[0]} offline={!connected} />
               <Board
                 board={b}
                 lane={lane}

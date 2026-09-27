@@ -351,6 +351,12 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
           );
         })}
       </div>
+      {tasks.length === 0 && (
+        <p className="hint" style={{ marginTop: 12 }}>
+          Задач пока нет. «+ Задача» в шапке или «+» в заголовке колонки создаёт первую. Статус меняется
+          перетаскиванием карточки, агенту задачу можно отдать прямо из окна задачи.
+        </p>
+      )}
     </div>
   );
 }
