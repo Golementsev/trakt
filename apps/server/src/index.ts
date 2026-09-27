@@ -1,17 +1,26 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 import { DEFAULT_HOST, DEFAULT_PORT } from '@trakt/shared';
+import { Db } from './db/db';
+import { createCtx, seedDemo } from './domain';
 import { createApp } from './http/app';
+import { dbPath, webDist } from './paths';
 
-const here = dirname(fileURLToPath(import.meta.url));
-// в сборке: apps/server/dist → apps/web/dist; в dev фронт отдаёт Vite
-const webDist = resolve(here, '../../web/dist');
+const db = new Db(dbPath);
+const ctx = createCtx(db);
+if (process.argv.includes('--seed') && seedDemo(ctx)) console.log('Тракт: добавлены демо-проекты из макета');
 
 const port = Number(process.env.TRAKT_PORT) || DEFAULT_PORT;
-const app = createApp({ webDist: existsSync(webDist) ? webDist : undefined });
+const app = createApp({ ctx, webDist: existsSync(webDist) ? webDist : undefined });
 
-serve({ fetch: app.fetch, hostname: DEFAULT_HOST, port }, (info) => {
-  console.log(`Тракт: http://${DEFAULT_HOST}:${info.port}`);
+const server = serve({ fetch: app.fetch, hostname: DEFAULT_HOST, port }, (info) => {
+  console.log(`Тракт: http://${DEFAULT_HOST}:${info.port}  (база: ${dbPath})`);
 });
+
+const shutdown = () => {
+  server.close();
+  db.close();
+  process.exit(0);
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
