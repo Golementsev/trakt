@@ -61,7 +61,7 @@ describe('createTask', () => {
 describe('moveTask', () => {
   it('moves between allowed statuses and writes the note to the feed', () => {
     const { ctx, projectId, types, statuses } = setup();
-    const t = createTask(ctx, projectId, { title: 'A', typeId: types[3]!.id });
+    const t = createTask(ctx, projectId, { title: 'A', typeId: types[3]!.id, agentOwned: true });
     moveTask(ctx, t.id, { statusId: statuses[2]! }, 'Агент', 'Взял в работу');
     const e = listProjectEvents(ctx, projectId)[0]!;
     expect(e.summary).toBe('перевёл CHE-1 «Бэклог» → «В работе»');

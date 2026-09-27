@@ -7,7 +7,8 @@ import type {
   TaskDetail,
   UpdateTaskInput,
 } from '@trakt/shared';
-import { bool, conflict, invalid, notFound, verb, type Actor, type Ctx } from './context';
+import { bool, conflict, invalid, isYou, notFound, verb, type Actor, type Ctx } from './context';
+import { agentMoveProblem } from './agentPolicy';
 import { listTaskEvents, notify, record } from './events';
 import { missingMessage, missingRequired, normalizeFieldValue } from './fieldValues';
 import { getProjectRow } from './projects';
@@ -257,6 +258,14 @@ function touch(ctx: Ctx, id: string) {
   ctx.db.run('UPDATE tasks SET updated_at = ? WHERE id = ?', ctx.now(), id);
 }
 
+/** Отдать/забрать у агента. Забрали — лиз агента тоже снимается. */
+function setAgentOwned(ctx: Ctx, t: TaskRow, agentOwned: boolean, actor: Actor) {
+  if (agentOwned) ctx.db.run('UPDATE tasks SET agent_owned = 1 WHERE id = ?', t.id);
+  else
+    ctx.db.run('UPDATE tasks SET agent_owned = 0, claimed_by = NULL, claim_until = NULL WHERE id = ?', t.id);
+  recordOwnership(ctx, t, agentOwned, actor);
+}
+
 function recordOwnership(ctx: Ctx, t: TaskRow, agentOwned: boolean, actor: Actor) {
   const key = taskKey(ctx, t);
   record(ctx, {
@@ -279,8 +288,7 @@ export function updateTask(ctx: Ctx, id: string, input: UpdateTaskInput, actor: 
       ctx.db.run('UPDATE tasks SET description = ? WHERE id = ?', input.description, id);
     if (input.fields) writeFieldValues(ctx, id, t.type_id, input.fields);
     if (input.agentOwned !== undefined && input.agentOwned !== bool(t.agent_owned)) {
-      ctx.db.run('UPDATE tasks SET agent_owned = ? WHERE id = ?', input.agentOwned ? 1 : 0, id);
-      recordOwnership(ctx, t, input.agentOwned, actor);
+      setAgentOwned(ctx, t, input.agentOwned, actor);
     }
     touch(ctx, id);
   });
@@ -310,6 +318,10 @@ export function moveTask(
       `Переход «${from.name}» → «${to.name}» запрещён воркфлоу.` +
         (allowed.length ? ` Разрешено: ${allowed.join(', ')}.` : ' Из этого статуса переходов нет.'),
     );
+  }
+  if (from.id !== to.id && !isYou(actor)) {
+    const problem = agentMoveProblem(ctx, t, to.id, actor, taskKey(ctx, t));
+    if (problem) throw conflict(problem);
   }
   if (input.typeId !== undefined && input.typeId !== t.type_id) {
     const type = getTypeRow(ctx, input.typeId);
@@ -341,8 +353,7 @@ export function moveTask(
       });
     }
     if (input.agentOwned !== undefined && input.agentOwned !== bool(t.agent_owned)) {
-      ctx.db.run('UPDATE tasks SET agent_owned = ? WHERE id = ?', input.agentOwned ? 1 : 0, id);
-      recordOwnership(ctx, t, input.agentOwned, actor);
+      setAgentOwned(ctx, t, input.agentOwned, actor);
     }
     touch(ctx, id);
   });

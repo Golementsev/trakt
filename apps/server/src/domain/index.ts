@@ -7,4 +7,7 @@ export * from './workflow';
 export * from './tasks';
 export * from './subtasks';
 export * from './board';
+export * from './settings';
+export * from './agentPolicy';
+export * from './agent';
 export * from './seed';
