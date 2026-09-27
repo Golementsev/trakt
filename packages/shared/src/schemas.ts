@@ -100,3 +100,17 @@ export type UpdateTaskInput = z.infer<typeof updateTaskInput>;
 export type MoveTaskInput = z.infer<typeof moveTaskInput>;
 export type UpdateSubtaskInput = z.infer<typeof updateSubtaskInput>;
 export type UpdateAppSettingsInput = z.infer<typeof updateAppSettingsInput>;
+
+export const createIdeaInput = z.object({
+  text: z.string().trim().min(1, 'Пустую мысль сохранять незачем').max(4000),
+  aiText: z.string().max(20000).nullable().optional(),
+});
+export const aiSplitInput = z.object({
+  title: z.string().trim().min(1, 'Сначала напишите, что нужно сделать').max(500),
+  description: z.string().max(20000).optional(),
+});
+export const aiGenerateInput = z.object({
+  projectId: z.string(),
+  text: z.string().trim().min(1).max(4000),
+});
+export type CreateIdeaInput = z.infer<typeof createIdeaInput>;

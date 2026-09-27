@@ -154,3 +154,19 @@ export interface LiveMessage {
 export interface ApiError {
   error: string;
 }
+
+export interface Idea {
+  id: string;
+  projectId: string | null;
+  text: string;
+  aiText: string | null;
+  createdAt: string;
+}
+
+export interface AiStatus {
+  available: boolean;
+  /** Чем генерируем: «Anthropic API (…)» или «Claude Code CLI (…)». */
+  provider: string | null;
+  /** Что сделать, чтобы включить AI. */
+  hint: string | null;
+}

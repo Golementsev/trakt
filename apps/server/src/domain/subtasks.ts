@@ -77,3 +77,19 @@ export function deleteSubtask(ctx: Ctx, id: string, actor: Actor = 'you') {
   ctx.db.run('DELETE FROM subtasks WHERE id = ?', id);
   notify(ctx, { projectId: t.project_id, taskId: t.id, actor, kind: 'subtask.deleted' });
 }
+
+/** Несколько сабтасок разом (например, «✦ Разбить с AI») — одним событием в ленте. */
+export function addSubtasks(ctx: Ctx, taskId: string, titles: string[], actor: Actor) {
+  const t = getTaskRow(ctx, taskId);
+  ctx.db.tx(() => {
+    for (const title of titles) addSubtask(ctx, taskId, title, actor);
+    record(ctx, {
+      projectId: t.project_id,
+      taskId,
+      actor,
+      kind: 'subtask.split',
+      summary: `разбил ${taskKey(ctx, t)} на сабтаски`,
+      note: titles.join(' · '),
+    });
+  });
+}

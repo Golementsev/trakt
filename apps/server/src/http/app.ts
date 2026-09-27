@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono';
-import { streamSSE } from 'hono/streaming';
+import { stream as streamBody, streamSSE } from 'hono/streaming';
 import { ZodError, type z } from 'zod';
 import {
   ACTOR_YOU,
@@ -20,12 +20,17 @@ import {
   updateSubtaskInput,
   updateTaskInput,
   updateTypeInput,
+  aiGenerateInput,
+  aiSplitInput,
+  createIdeaInput,
   type LiveMessage,
   type TaskDetail,
 } from '@trakt/shared';
 import * as d from '../domain';
 import { mcpHandler } from '../mcp/http';
 import type { Runner } from '../runner/runner';
+import { statusOf, type AiProvider } from '../ai/provider';
+import { ideaPrompt, parseSubtasks, splitPrompt } from '../ai/prompts';
 import { localOnly } from './guard';
 import { serveWeb } from './static';
 
@@ -37,6 +42,8 @@ export interface AppOptions {
   connect?: () => AgentConnectInfo;
   /** Запуск агентов кнопкой «▶ Агент». Без него (тесты) — только ручная доска и MCP. */
   runner?: Runner;
+  /** Источник модели для «✦ Разбить с AI» и идей. null — AI недоступен. */
+  ai?: AiProvider | null;
 }
 
 export interface AgentConnectInfo {
@@ -49,7 +56,7 @@ async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer
   return schema.parse(raw);
 }
 
-export function createApp({ ctx, webDist, connect, runner }: AppOptions) {
+export function createApp({ ctx, webDist, connect, runner, ai = null }: AppOptions) {
   const app = new Hono();
   app.use('*', localOnly);
   const api = new Hono();
@@ -180,6 +187,74 @@ export function createApp({ ctx, webDist, connect, runner }: AppOptions) {
   );
   api.delete('/subtasks/:id', (c) => {
     d.deleteSubtask(ctx, c.req.param('id'), you);
+    return c.json({ ok: true });
+  });
+
+  // AI-функции доски
+  const needAi = () => {
+    if (!ai) throw d.invalid(statusOf(null).hint!);
+    return ai;
+  };
+  const suggestSubtasks = async (task: { title: string; description: string; fields?: string[] }) => {
+    const titles = parseSubtasks(await needAi().generate(splitPrompt(task)));
+    if (!titles.length) throw d.invalid('AI не предложил сабтаски — попробуйте ещё раз');
+    return titles;
+  };
+  api.get('/ai', (c) => c.json(statusOf(ai)));
+  api.post('/ai/split', async (c) => {
+    const input = await body(c, aiSplitInput);
+    return c.json({
+      subtasks: await suggestSubtasks({ title: input.title, description: input.description ?? '' }),
+    });
+  });
+  api.post('/tasks/:id/split', async (c) => {
+    const t = d.getTaskDetail(ctx, c.req.param('id'));
+    const fields = d
+      .listFields(ctx, t.typeId)
+      .filter((f) => f.visibleToAgent && t.fields[f.id])
+      .map((f) => `${f.name}: ${String(t.fields[f.id])}`);
+    const titles = await suggestSubtasks({ title: t.title, description: t.description, fields });
+    d.addSubtasks(ctx, t.id, titles, 'AI');
+    return c.json(withRuns(d.getTaskDetail(ctx, t.id)));
+  });
+  /** Идея из «+»: поток NDJSON {t: дельта} … {done: true} | {error}. */
+  api.post('/ai/generate', async (c) => {
+    const input = await body(c, aiGenerateInput);
+    const provider = needAi();
+    const p = d.getProject(ctx, input.projectId);
+    const board = d.getBoard(ctx, p.id);
+    const tasks = board.tasks.map(
+      (t) => `${t.key} [${board.statuses.find((s) => s.id === t.statusId)?.name ?? ''}] ${t.title}`,
+    );
+    c.header('Content-Type', 'application/x-ndjson; charset=utf-8');
+    return streamBody(c, async (out) => {
+      const abort = new AbortController();
+      out.onAbort(() => abort.abort());
+      let sent = 0;
+      const write = (obj: unknown) => out.write(JSON.stringify(obj) + '\n');
+      try {
+        const text = await provider.generate(ideaPrompt(p.name, tasks, input.text), {
+          signal: abort.signal,
+          onText: (full) => {
+            if (full.length > sent) void write({ t: full.slice(sent) });
+            sent = full.length;
+          },
+        });
+        if (text.length > sent) await write({ t: text.slice(sent) });
+        await write({ done: true });
+      } catch (e) {
+        if (!abort.signal.aborted) await write({ error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  });
+
+  // идеи
+  api.get('/projects/:id/ideas', (c) => c.json(d.listIdeas(ctx, c.req.param('id'))));
+  api.post('/projects/:id/ideas', async (c) =>
+    c.json(d.createIdea(ctx, c.req.param('id'), await body(c, createIdeaInput)), 201),
+  );
+  api.delete('/ideas/:id', (c) => {
+    d.deleteIdea(ctx, c.req.param('id'));
     return c.json({ ok: true });
   });
 

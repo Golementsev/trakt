@@ -7,6 +7,11 @@ import { createCtx, seedDemo } from './domain';
 import { createApp } from './http/app';
 import { Runner } from './runner/runner';
 import { dbPath, repoRoot, webDist } from './paths';
+import { detectProvider } from './ai/provider';
+
+// ключ Anthropic и прочие переменные можно держать в .env в корне доски
+const envFile = resolve(repoRoot, '.env');
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const db = new Db(dbPath);
 const ctx = createCtx(db);
@@ -17,6 +22,7 @@ const stdioEntry = resolve(repoRoot, 'apps/server/dist/trakt-mcp.js');
 const mcpUrl = `http://${DEFAULT_HOST}:${port}/mcp`;
 const runner = new Runner(ctx, { mcpUrl, workDir: resolve(dirname(dbPath), 'runs'), autoTakeMs: 10_000 });
 runner.start();
+const ai = detectProvider();
 const app = createApp({
   ctx,
   webDist: existsSync(webDist) ? webDist : undefined,
@@ -25,11 +31,13 @@ const app = createApp({
     stdio: { command: 'node', args: [stdioEntry], built: existsSync(stdioEntry) },
   }),
   runner,
+  ai,
 });
 
 const server = serve({ fetch: app.fetch, hostname: DEFAULT_HOST, port }, (info) => {
   console.log(`Тракт: http://${DEFAULT_HOST}:${info.port}  MCP: http://${DEFAULT_HOST}:${info.port}/mcp`);
   console.log(`База: ${dbPath}`);
+  console.log(ai ? `AI: ${ai.label}` : 'AI: недоступен (нет ANTHROPIC_API_KEY и не найден claude)');
 });
 
 const shutdown = () => {
