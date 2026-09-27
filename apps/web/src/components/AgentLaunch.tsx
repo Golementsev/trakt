@@ -1,27 +1,37 @@
-import { AGENT_PRESETS, type Board } from '@trakt/shared';
+import { useQuery } from '@tanstack/react-query';
+import type { Board } from '@trakt/shared';
 import { api } from '../api/client';
 import { Editable } from './Editable';
 
 interface Props {
   board: Board;
   act: (p: Promise<unknown>) => Promise<void>;
+  onOpenAgents: () => void;
 }
 
-/** «Настройки → Агент»: как доска сама запускает агента кнопкой «▶ Агент». */
-export function AgentLaunch({ board, act }: Props) {
+/** «Настройки → Агент»: где агент работает в этом проекте. Кто именно — на странице «Агенты». */
+export function AgentLaunch({ board, act, onOpenAgents }: Props) {
   const pid = board.project.id;
   const g = board.agent;
-  const preset =
-    AGENT_PRESETS.find((p) => p.command === g.runCommand)?.id ?? (g.runCommand ? 'custom' : null);
+  const agents = useQuery({ queryKey: ['agents'], queryFn: api.agents });
+  const src = agents.data?.runner.sources.find((s) => s.id === agents.data?.runner.selected);
 
   return (
     <div className="sect">
       <h3>Запуск агента кнопкой «▶ Агент»</h3>
-      <p className="hint" style={{ margin: '0 0 10px' }}>
-        Доска запускает агента в папке проекта и передаёт ему задачу в stdin. Агент отчитывается через MCP,
-        лог идёт живьём в сабтаску.
+      <p className="hint" style={{ margin: '0 0 12px' }}>
+        Доска запускает агента в папке проекта и передаёт ему задачу. Агент отчитывается через MCP, лог идёт
+        живьём в сабтаску.
       </p>
       <div className="rows">
+        <div className="erow">
+          <span className="hint">
+            Запускается: <b style={{ color: 'var(--text)' }}>{src?.label ?? '…'}</b>
+          </span>
+          <button className="btn sm quiet" onClick={onOpenAgents}>
+            Сменить на странице «Агенты»
+          </button>
+        </div>
         <label className="erow" style={{ fontSize: 13 }}>
           <span className="hint">Папка проекта</span>
           <Editable
@@ -31,39 +41,6 @@ export function AgentLaunch({ board, act }: Props) {
             onCommit={(repoPath) => void act(api.updateProject(pid, { repoPath: repoPath.trim() || null }))}
           />
         </label>
-        <div className="erow">
-          <span className="hint">Команда</span>
-          <div className="seg">
-            {AGENT_PRESETS.map((p) => (
-              <button
-                key={p.id}
-                className={preset === p.id ? 'on' : ''}
-                onClick={() => void act(api.updateAgentSettings(pid, { runCommand: p.command }))}
-              >
-                {p.label}
-              </button>
-            ))}
-            <button className={preset === 'custom' ? 'on' : ''} disabled>
-              Своя команда
-            </button>
-          </div>
-        </div>
-        <Editable
-          multiline
-          className="in mono"
-          rows={2}
-          value={g.runCommand ?? ''}
-          placeholder="Например: claude -p --mcp-config {mcpConfigFile}"
-          onCommit={(runCommand) =>
-            void act(api.updateAgentSettings(pid, { runCommand: runCommand.trim() || null }))
-          }
-        />
-        <p className="hint" style={{ margin: 0 }}>
-          Подстановки: <span className="mono">{'{mcpConfigFile}'}</span> — JSON с подключением к доске,{' '}
-          <span className="mono">{'{mcpUrl}'}</span>, <span className="mono">{'{promptFile}'}</span>,{' '}
-          <span className="mono">{'{repoPath}'}</span>, <span className="mono">{'{task}'}</span>. Промпт также
-          приходит в stdin.
-        </p>
         <label className="tog" style={{ fontSize: 13 }}>
           <input
             type="checkbox"

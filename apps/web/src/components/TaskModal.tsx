@@ -1,3 +1,4 @@
+import { X, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { Board, Field, FieldValue, RunInfo, Subtask, TaskDetail, UpdateTaskInput } from '@trakt/shared';
 import { api } from '../api/client';
@@ -135,7 +136,7 @@ export function TaskModal({ board, taskId, draft: init, closeSignal, onClose, on
         <div className="thead">
           <span className="spacer" />
           <button className="iconbtn" aria-label="Закрыть" onClick={onClose}>
-            ×
+            <X className="i" />
           </button>
         </div>
         <div className="tbody">
@@ -205,12 +206,12 @@ export function TaskModal({ board, taskId, draft: init, closeSignal, onClose, on
                 }
               }}
             >
-              🗑
+              <Trash2 className="i sm" />
             </button>
           </>
         )}
         <button className="iconbtn" aria-label="Закрыть" onClick={requestClose}>
-          ×
+          <X className="i" />
         </button>
       </div>
 

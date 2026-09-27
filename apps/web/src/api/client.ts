@@ -12,6 +12,10 @@ import type {
   Project,
   ProjectSummary,
   AiStatus,
+  AgentsOverview,
+  CheckResult,
+  RunnerSourceId,
+  UpdateAgentsInput,
   Idea,
   RunInfo,
   Status,
@@ -113,6 +117,9 @@ export const api = {
   stopRun: (runId: string) => post<{ ok: true }>(`/runs/${runId}/stop`),
 
   aiStatus: () => get<AiStatus>('/ai'),
+  agents: () => get<AgentsOverview>('/agents'),
+  updateAgents: (b: UpdateAgentsInput) => put<AgentsOverview>('/agents', b),
+  checkAgent: (target: RunnerSourceId | 'ai') => post<CheckResult>('/agents/check', { target }),
   aiSplit: (title: string, description: string) =>
     post<{ subtasks: string[] }>('/ai/split', { title, description }),
   splitTask: (taskId: string) => post<TaskDetail>(`/tasks/${taskId}/split`),

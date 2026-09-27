@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PanelLeft } from 'lucide-react';
 import type { LiveMessage } from '@trakt/shared';
 import { useBoard, useEvents, useProjects, useSettings, refreshProject } from './api/queries';
 import { useLiveUpdates } from './api/live';
@@ -14,6 +15,8 @@ import { TaskModal, type DraftInit } from './components/TaskModal';
 import { Settings, type SettingsTab } from './components/Settings';
 import { Feed } from './components/Feed';
 import { IdeaFab } from './components/IdeaFab';
+import { AgentsPage } from './components/AgentsPage';
+import type { View } from './components/Sidebar';
 
 type Open = { kind: 'task'; id: string } | { kind: 'draft'; init: DraftInit; n: number } | null;
 
@@ -25,6 +28,14 @@ export function App() {
   const settings = useSettings();
   const [storedProject, setStoredProject] = useStored<string | null>('project', null);
   const [lane, setLane] = useStored<LaneMode>('lane', 'type');
+  const [view, setView] = useStored<View>('view', 'board');
+  // боковая панель: на широком экране сворачивается, на узком выезжает поверх
+  const [sideClosed, setSideClosed] = useStored<boolean>('sideClosed', false);
+  const [sideOpen, setSideOpen] = useState(false);
+  const toggleSide = () => {
+    if (window.matchMedia('(max-width: 900px)').matches) setSideOpen((v) => !v);
+    else setSideClosed(!sideClosed);
+  };
 
   const list = projects.data ?? [];
   const projectId = list.find((p) => p.id === storedProject)?.id ?? list[0]?.id ?? null;
@@ -75,7 +86,13 @@ export function App() {
 
   const selectProject = (id: string) => {
     setStoredProject(id);
+    setView('board');
+    setSideOpen(false);
     setOpen(null);
+  };
+  const selectView = (v: View) => {
+    setView(v);
+    setSideOpen(false);
   };
 
   const createProject = async (name: string) => {
@@ -102,22 +119,25 @@ export function App() {
 
   return (
     <>
-      <div className="app">
+      <div className={`app ${sideClosed ? 'side-closed' : ''} ${sideOpen ? 'side-open' : ''}`}>
+        <div className="side-scrim" onClick={() => setSideOpen(false)} />
         <Sidebar
           projects={list}
           currentId={projectId}
+          view={view}
+          onView={selectView}
           onSelect={selectProject}
           onCreate={createProject}
           agentsOn={!agentsPaused}
           agentTaskCount={current?.agentTaskCount ?? 0}
         />
         <main className="main">
-          {current && b ? (
+          {view === 'agents' ? (
+            <AgentsPage onToggleSide={toggleSide} />
+          ) : current && b ? (
             <>
               <TopBar
-                projects={list}
-                currentId={current.id}
-                onSelect={selectProject}
+                onToggleSide={toggleSide}
                 name={b.project.name}
                 projectKey={b.project.key}
                 lane={lane}
@@ -139,6 +159,7 @@ export function App() {
             </>
           ) : (
             <EmptyMain
+              onToggleSide={toggleSide}
               loading={projects.isLoading || (!!projectId && board.isLoading)}
               error={projects.error}
             />
@@ -161,12 +182,21 @@ export function App() {
         />
       )}
       {settingsTab && b && (
-        <Settings board={b} tab={settingsTab} onTab={setSettingsTab} onClose={() => setSettingsTab(null)} />
+        <Settings
+          board={b}
+          tab={settingsTab}
+          onTab={setSettingsTab}
+          onClose={() => setSettingsTab(null)}
+          onOpenAgents={() => {
+            setSettingsTab(null);
+            selectView('agents');
+          }}
+        />
       )}
       {feedOpen && b && (
         <Feed projectName={b.project.name} events={events.data ?? []} onClose={() => setFeedOpen(false)} />
       )}
-      {b && (
+      {b && view === 'board' && (
         <IdeaFab
           projectId={b.project.id}
           projectName={b.project.name}
@@ -180,16 +210,31 @@ export function App() {
   );
 }
 
-function EmptyMain({ loading, error }: { loading: boolean; error: Error | null }) {
+function EmptyMain({
+  loading,
+  error,
+  onToggleSide,
+}: {
+  loading: boolean;
+  error: Error | null;
+  onToggleSide: () => void;
+}) {
   return (
-    <div className="boardwrap">
-      <p className="hint">
-        {error
-          ? `Не удалось загрузить доску: ${error.message}`
-          : loading
-            ? 'Загружаю доску…'
-            : 'Проектов пока нет. Создайте первый слева: «+ Новый проект».'}
-      </p>
-    </div>
+    <>
+      <div className="top">
+        <button className="iconbtn side-toggle" aria-label="Боковая панель" onClick={onToggleSide}>
+          <PanelLeft className="i" />
+        </button>
+      </div>
+      <div className="boardwrap">
+        <p className="hint">
+          {error
+            ? `Не удалось загрузить доску: ${error.message}`
+            : loading
+              ? 'Загружаю доску…'
+              : 'Проектов пока нет. Создайте первый слева: «+ Новый проект».'}
+        </p>
+      </div>
+    </>
   );
 }

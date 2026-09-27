@@ -1,9 +1,9 @@
+import { Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Board, FieldKind, StatusCategory } from '@trakt/shared';
 import { api } from '../api/client';
 import { refreshProject } from '../api/queries';
 import { run } from '../lib/toast';
-import { AgentConnect } from './AgentConnect';
 import { AgentLaunch } from './AgentLaunch';
 import { Editable } from './Editable';
 
@@ -35,9 +35,11 @@ interface Props {
   tab: SettingsTab;
   onTab: (tab: SettingsTab) => void;
   onClose: () => void;
+  /** Перейти на страницу «Агенты» (источники агентов — там). */
+  onOpenAgents: () => void;
 }
 
-export function Settings({ board, tab, onTab, onClose }: Props) {
+export function Settings({ board, tab, onTab, onClose, onOpenAgents }: Props) {
   const pid = board.project.id;
   const [tplType, setTplType] = useState<string | null>(null);
   const typeForTpl = board.types.find((t) => t.id === tplType) ?? board.types[0];
@@ -66,7 +68,7 @@ export function Settings({ board, tab, onTab, onClose }: Props) {
       <TemplateTab board={board} typeId={typeForTpl.id} onType={setTplType} act={act} />
     );
   else if (tab === 'wf') content = <WorkflowTab board={board} act={act} />;
-  else content = <AgentTab board={board} act={act} />;
+  else content = <AgentTab board={board} act={act} onOpenAgents={onOpenAgents} />;
 
   return (
     <div className="modal">
@@ -171,7 +173,7 @@ function StatusesTab({ board, act }: { board: Board; act: Act }) {
               ↓
             </button>
             <button className="iconbtn del" title="Удалить" onClick={() => void act(api.deleteStatus(s.id))}>
-              ×
+              <Trash2 className="i sm" />
             </button>
           </div>
         ))}
@@ -215,7 +217,7 @@ function TypesTab({ board, act, onTemplate }: { board: Board; act: Act; onTempla
               Шаблон
             </button>
             <button className="iconbtn del" title="Удалить" onClick={() => void act(api.deleteType(t.id))}>
-              ×
+              <Trash2 className="i sm" />
             </button>
           </div>
         ))}
@@ -298,7 +300,7 @@ function TemplateTab({
                 title="Удалить поле"
                 onClick={() => void act(api.deleteField(f.id))}
               >
-                ×
+                <Trash2 className="i sm" />
               </button>
             </div>
           ))
@@ -376,7 +378,7 @@ function WorkflowTab({ board, act }: { board: Board; act: Act }) {
   );
 }
 
-function AgentTab({ board, act }: { board: Board; act: Act }) {
+function AgentTab({ board, act, onOpenAgents }: { board: Board; act: Act; onOpenAgents: () => void }) {
   const g = board.agent;
   const pid = board.project.id;
   const second = board.statuses[1]?.name ?? '';
@@ -426,8 +428,7 @@ function AgentTab({ board, act }: { board: Board; act: Act }) {
           Может создавать задачи
         </label>
       </div>
-      <AgentLaunch board={board} act={act} />
-      <AgentConnect />
+      <AgentLaunch board={board} act={act} onOpenAgents={onOpenAgents} />
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { Board as BoardData, TaskCard } from '@trakt/shared';
 import { api } from '../api/client';
 import { keys, queryClient, refreshProject } from '../api/queries';
@@ -170,6 +171,7 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
   const doneIndex = statuses.findIndex((c) => c.category === 'done');
   const defaultAfter = statuses[(doneIndex < 0 ? n : doneIndex) - 1]?.id ?? '_first';
   const [newName, setNewName] = useState('');
+  const [adding, setAdding] = useState(false);
   const [after, setAfter] = useState<string | null>(null);
   const afterValue =
     after && (after === '_first' || statuses.some((s) => s.id === after)) ? after : defaultAfter;
@@ -183,6 +185,7 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
     );
     if (!s) return;
     setNewName('');
+    setAdding(false);
     setAfter(null);
     setFresh(s.id);
     setTimeout(() => setFresh(null), 1600);
@@ -191,7 +194,7 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
 
   return (
     <div className="boardwrap">
-      <div className="board" style={{ gridTemplateColumns: `repeat(${n}, minmax(268px, 300px)) 220px` }}>
+      <div className="board" style={{ '--cols': n } as CSSProperties}>
         {statuses.map((s, i) => {
           const cls = [
             'colhead',
@@ -225,65 +228,82 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
               }}
               onDrop={(e) => dragCol && dropCol(e, s.id)}
             >
-              <span className="grab">⋮⋮</span>
+              <span className="grab">
+                <GripVertical className="i sm" />
+              </span>
               <span className="cdot" style={{ background: s.color }} />
               <b>{s.name}</b>
               <span className="cnt">{tasks.filter((t) => t.statusId === s.id).length}</span>
               <span className="x">
                 {i > 0 && (
                   <button
-                    className="iconbtn"
+                    className="iconbtn sm"
                     title="Сдвинуть левее"
                     onClick={() => void moveStatus(s.id, i - 1)}
                   >
-                    ←
+                    <ChevronLeft className="i sm" />
                   </button>
                 )}
                 {i < n - 1 && (
                   <button
-                    className="iconbtn"
+                    className="iconbtn sm"
                     title="Сдвинуть правее"
                     onClick={() => void moveStatus(s.id, i + 1)}
                   >
-                    →
+                    <ChevronRight className="i sm" />
                   </button>
                 )}
-                <button className="iconbtn" title={`Задача в «${s.name}»`} onClick={() => onNew(s.id)}>
-                  +
+                <button className="iconbtn sm" title={`Задача в «${s.name}»`} onClick={() => onNew(s.id)}>
+                  <Plus className="i sm" />
                 </button>
                 <button
-                  className="iconbtn del"
+                  className="iconbtn sm del"
                   title="Удалить статус"
                   onClick={() => void deleteStatus(s.id)}
                 >
-                  ×
+                  <Trash2 className="i sm" />
                 </button>
               </span>
             </div>
           );
         })}
         <div className="addcol">
-          <form onSubmit={(e) => void addStatus(e)}>
-            <input
-              className="in"
-              placeholder="+ Новый статус"
-              aria-label="Название статуса"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <label className="after">
-              после{' '}
-              <select className="in" value={afterValue} onChange={(e) => setAfter(e.target.value)}>
-                <option value="_first">— в начало —</option>
-                {statuses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="btn sm pri">Добавить</button>
-          </form>
+          <button
+            className="iconbtn"
+            title="Новый статус"
+            aria-label="Новый статус"
+            onClick={() => setAdding(!adding)}
+          >
+            <Plus className="i" />
+          </button>
+          {adding && (
+            <form
+              className="addpop"
+              onSubmit={(e) => void addStatus(e)}
+              onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setAdding(false))}
+            >
+              <input
+                className="in"
+                autoFocus
+                placeholder="+ Новый статус"
+                aria-label="Название статуса"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <label className="after">
+                после{' '}
+                <select className="in" value={afterValue} onChange={(e) => setAfter(e.target.value)}>
+                  <option value="_first">— в начало —</option>
+                  {statuses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="btn sm pri">Добавить</button>
+            </form>
+          )}
         </div>
 
         {lanes.map((l) => {
@@ -297,7 +317,9 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
                   className={`lanehead ${isClosed ? 'closed' : ''}`}
                   onClick={() => setClosed({ ...closed, [k]: !isClosed })}
                 >
-                  <span className="chev">▾</span>
+                  <span className="chev">
+                    <ChevronDown className="i sm" />
+                  </span>
                   {l.agent && <Avatar agent small />}
                   {l.color ? (
                     <span className="chip" style={{ '--c': l.color } as CSSProperties}>
@@ -339,7 +361,8 @@ export function Board({ board, lane, flash, onOpen, onNew }: Props) {
                         ))}
                       {s.category !== 'done' && l.name === null && (
                         <button className="addcard" onClick={() => onNew(s.id)}>
-                          + Задача
+                          <Plus className="i sm" />
+                          Задача
                         </button>
                       )}
                     </div>

@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -162,7 +163,7 @@ export function IdeaFab({ projectId, projectName, open, onOpenChange, onToTask }
         aria-label="Новая мысль или идея"
         onClick={() => onOpenChange(!open)}
       >
-        +
+        <Plus className="i" style={{ width: 24, height: 24 }} />
       </button>
     </>
   );

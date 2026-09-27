@@ -1,4 +1,5 @@
 import type { CSSProperties, DragEvent } from 'react';
+import { Bot, ListChecks } from 'lucide-react';
 import type { TaskCard, TaskType } from '@trakt/shared';
 
 interface Props {
@@ -28,9 +29,6 @@ export function Card({ task: t, type, flash, dragging, onOpen, onDragStart, onDr
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="row1">
-        <span className="cid">{t.key}</span>
-      </div>
       <div className="ttl">{t.title}</div>
       <div className="meta">
         <span className="chip" style={{ '--c': type?.color ?? '#888' } as CSSProperties}>
@@ -39,9 +37,7 @@ export function Card({ task: t, type, flash, dragging, onOpen, onDragStart, onDr
         </span>
         {total > 0 && (
           <span className="sub" title="Сабтаски">
-            <span className="bar">
-              <i style={{ width: `${(done / total) * 100}%` }} />
-            </span>
+            <ListChecks className="i sm" />
             {done}/{total}
           </span>
         )}
@@ -52,9 +48,10 @@ export function Card({ task: t, type, flash, dragging, onOpen, onDragStart, onDr
           </span>
         ) : t.agentOwned ? (
           <span className="working" style={{ color: 'var(--faint)' }} title="Задачу ведёт агент">
-            AI
+            <Bot className="i sm" />
           </span>
         ) : null}
+        <span className="cid">{t.key}</span>
       </div>
     </article>
   );

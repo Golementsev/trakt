@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import type { BoardEvent } from '@trakt/shared';
 import { actorName, formatWhen, isYou } from '../lib/format';
 import { Avatar } from './Avatar';
@@ -19,7 +20,7 @@ export function Feed({ projectName, events, onClose }: Props) {
           <b>Лента · {projectName}</b>
           <span className="spacer" />
           <button className="iconbtn" aria-label="Закрыть" onClick={onClose}>
-            ×
+            <X className="i" />
           </button>
         </div>
         <div className="list">

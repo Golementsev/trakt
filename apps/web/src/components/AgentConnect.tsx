@@ -1,69 +1,109 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Copy } from 'lucide-react';
 import { api, type AgentConnectInfo } from '../api/client';
 import { toast } from '../lib/toast';
+
+interface Block {
+  where: string;
+  code: string;
+}
 
 interface Snippet {
   id: string;
   title: string;
-  where: string;
-  code: string;
+  blocks: Block[];
+  stdio?: boolean;
 }
 
 /** Готовые конфиги подключения MCP для популярных харнесов. */
 export function snippetsFor(info: AgentConnectInfo): Snippet[] {
   const { httpUrl, stdio } = info;
   const entry = stdio.args[0] ?? '';
+  const addUser = `claude mcp add --scope user --transport http trakt ${httpUrl}`;
   return [
     {
+      id: 'desktop',
+      title: 'Claude Desktop',
+      stdio: true,
+      blocks: [
+        {
+          where:
+            'Вкладка Code в Claude Desktop — это Claude Code: он берёт серверы MCP из тех же настроек, что и терминал. Выполните один раз в терминале и перезапустите сессию:',
+          code: addUser,
+        },
+        {
+          where:
+            'Обычный чат Claude Desktop: Настройки → Разработчик → «Изменить конфиг» (claude_desktop_config.json), добавьте и перезапустите приложение:',
+          code: JSON.stringify(
+            { mcpServers: { trakt: { command: stdio.command, args: stdio.args } } },
+            null,
+            2,
+          ),
+        },
+      ],
+    },
+    {
       id: 'claude',
-      title: 'Claude Code',
-      where: 'Выполните в терминале, в папке проекта:',
-      code: `claude mcp add --transport http trakt ${httpUrl}`,
+      title: 'Claude Code CLI',
+      blocks: [{ where: 'Один раз в терминале — доска будет доступна во всех папках:', code: addUser }],
     },
     {
       id: 'codex',
       title: 'Codex CLI',
-      where: 'Добавьте в ~/.codex/config.toml:',
+      stdio: true,
       // одинарные кавычки в TOML — строка без экранирования (важно для путей Windows)
-      code: `[mcp_servers.trakt]\ncommand = '${stdio.command}'\nargs = ['${entry}']`,
+      blocks: [
+        {
+          where: 'Добавьте в ~/.codex/config.toml:',
+          code: `[mcp_servers.trakt]\ncommand = '${stdio.command}'\nargs = ['${entry}']`,
+        },
+      ],
     },
     {
       id: 'cursor',
       title: 'Cursor',
-      where: 'Добавьте в .cursor/mcp.json (или глобальный ~/.cursor/mcp.json):',
-      code: JSON.stringify({ mcpServers: { trakt: { url: httpUrl } } }, null, 2),
+      blocks: [
+        {
+          where: 'Добавьте в .cursor/mcp.json (или глобальный ~/.cursor/mcp.json):',
+          code: JSON.stringify({ mcpServers: { trakt: { url: httpUrl } } }, null, 2),
+        },
+      ],
     },
     {
       id: 'json',
       title: 'Другой агент',
-      where: 'Streamable HTTP, если харнес его умеет; иначе — stdio:',
-      code: JSON.stringify(
+      stdio: true,
+      blocks: [
         {
-          mcpServers: {
-            trakt: { type: 'http', url: httpUrl },
-            'trakt-stdio': { command: stdio.command, args: stdio.args },
-          },
+          where: 'Streamable HTTP, если харнес его умеет; иначе — stdio:',
+          code: JSON.stringify(
+            {
+              mcpServers: {
+                trakt: { type: 'http', url: httpUrl },
+                'trakt-stdio': { command: stdio.command, args: stdio.args },
+              },
+            },
+            null,
+            2,
+          ),
         },
-        null,
-        2,
-      ),
+      ],
     },
   ];
 }
 
 export function AgentConnect() {
   const q = useQuery({ queryKey: ['agent-connect'], queryFn: api.agentConnect, staleTime: Infinity });
-  const [tab, setTab] = useState('claude');
+  const [tab, setTab] = useState('desktop');
   const info = q.data;
   if (!info) return null;
   const snippets = snippetsFor(info);
   const s = snippets.find((x) => x.id === tab) ?? snippets[0]!;
-  const usesStdio = s.id === 'codex' || s.id === 'json';
 
-  const copy = async () => {
+  const copy = async (code: string) => {
     try {
-      await navigator.clipboard.writeText(s.code);
+      await navigator.clipboard.writeText(code);
       toast('Скопировано');
     } catch {
       toast('Не получилось скопировать — выделите текст вручную');
@@ -71,33 +111,31 @@ export function AgentConnect() {
   };
 
   return (
-    <div className="sect">
-      <h3>Подключить агента</h3>
-      <p className="hint" style={{ margin: '0 0 10px' }}>
-        Доска — это MCP-сервер. Подключите его к своему агенту, потом скажите: «возьми PAY-12 с доски Тракт».
-        Агент сам возьмёт задачу, будет писать прогресс и двигать её по правилам выше.
-      </p>
-      <div className="seg" style={{ marginBottom: 8 }}>
+    <div className="rows" style={{ gap: 10 }}>
+      <div className="seg" style={{ width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
         {snippets.map((x) => (
           <button key={x.id} className={x.id === s.id ? 'on' : ''} onClick={() => setTab(x.id)}>
             {x.title}
           </button>
         ))}
       </div>
-      <p className="hint" style={{ margin: '0 0 6px' }}>
-        {s.where}
-      </p>
-      <pre className="snippet">{s.code}</pre>
-      <div className="erow" style={{ marginTop: 8 }}>
-        <button className="btn sm" onClick={() => void copy()}>
-          Скопировать
-        </button>
-        {usesStdio && !info.stdio.built && (
-          <span className="hint" style={{ color: 'var(--danger)' }}>
-            stdio-вход ещё не собран: выполните npm run build
-          </span>
-        )}
-      </div>
+      {s.blocks.map((b) => (
+        <div key={b.code} className="rows" style={{ gap: 6 }}>
+          <span className="hint">{b.where}</span>
+          <pre className="snippet">{b.code}</pre>
+          <div className="erow">
+            <button className="btn sm" onClick={() => void copy(b.code)}>
+              <Copy className="i sm" />
+              Скопировать
+            </button>
+          </div>
+        </div>
+      ))}
+      {s.stdio && !info.stdio.built && (
+        <span className="hint" style={{ color: 'var(--danger)' }}>
+          stdio-вход ещё не собран: выполните npm run build в папке доски.
+        </span>
+      )}
     </div>
   );
 }
