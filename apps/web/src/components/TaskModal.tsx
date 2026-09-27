@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { Board, Field, FieldValue, Subtask, TaskDetail, UpdateTaskInput } from '@trakt/shared';
+import type { Board, Field, FieldValue, RunInfo, Subtask, TaskDetail, UpdateTaskInput } from '@trakt/shared';
 import { api } from '../api/client';
 import { refreshProject, useTask } from '../api/queries';
 import { actorName, formatWhen, isYou } from '../lib/format';
@@ -183,7 +183,15 @@ export function TaskModal({ board, taskId, draft: init, closeSignal, onClose, on
           <>
             <button
               className={`btn sm ${task!.agentOwned ? '' : 'agent'}`}
-              onClick={() => void save({ agentOwned: !task!.agentOwned })}
+              onClick={async () => {
+                const res = await save({ agentOwned: !task!.agentOwned });
+                if (!res?.agentOwned) return;
+                toast(
+                  res.runs.length
+                    ? 'Агент взялся за задачу'
+                    : 'Задача отдана агенту: её возьмёт агент, подключённый через MCP',
+                );
+              }}
             >
               {task!.agentOwned ? 'Забрать у агента' : '▶ Отдать агенту'}
             </button>
@@ -301,8 +309,7 @@ export function TaskModal({ board, taskId, draft: init, closeSignal, onClose, on
         )}
 
         <Subtasks
-          taskId={task?.id ?? null}
-          subtasks={task?.subtasks ?? null}
+          task={task ?? null}
           draftTitles={draft.subtasks}
           onDraftAdd={(title) => setDraft((d) => ({ ...d, subtasks: [...d.subtasks, title] }))}
           projectId={pid}
@@ -470,22 +477,26 @@ function NumberInput(p: {
 }
 
 function Subtasks({
-  taskId,
-  subtasks,
+  task,
   draftTitles,
   onDraftAdd,
   projectId,
 }: {
-  taskId: string | null;
-  subtasks: Subtask[] | null;
+  task: TaskDetail | null;
   draftTitles: string[];
   onDraftAdd: (title: string) => void;
   projectId: string;
 }) {
   const [title, setTitle] = useState('');
+  const taskId = task?.id ?? null;
+  const runs = task?.runs ?? [];
   const rows: Array<Pick<Subtask, 'title' | 'done' | 'state' | 'log'> & { id: string }> =
-    subtasks ?? draftTitles.map((t, i) => ({ id: `d${i}`, title: t, done: false, state: 'idle', log: [] }));
+    task?.subtasks ??
+    draftTitles.map((t, i) => ({ id: `d${i}`, title: t, done: false, state: 'idle', log: [] }));
   const done = rows.filter((s) => s.done).length;
+  const runOf = (subtaskId: string) => runs.find((r) => r.subtaskId === subtaskId);
+  const canRunAll = !!taskId && rows.some((s) => !s.done && s.state !== 'running' && !runOf(s.id));
+  const taskRun = runs.find((r) => r.subtaskId === null);
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -499,8 +510,8 @@ function Subtasks({
     setTitle('');
   };
 
-  const toggle = async (id: string, value: boolean) => {
-    await run(api.updateSubtask(id, { done: value }));
+  const act = async (p: Promise<unknown>) => {
+    await run(p);
     refreshProject(projectId);
   };
 
@@ -512,6 +523,11 @@ function Subtasks({
           {done}/{rows.length}
         </span>
         <span className="sp" />
+        {canRunAll && (
+          <button className="btn sm" onClick={() => void act(api.runTask(taskId))}>
+            ▶ Все агенту
+          </button>
+        )}
       </h3>
       <div className="subs">
         {rows.length ? (
@@ -522,19 +538,19 @@ function Subtasks({
                 aria-label="Готово"
                 checked={s.done}
                 disabled={!taskId}
-                onChange={(e) => void toggle(s.id, e.target.checked)}
+                onChange={(e) => void act(api.updateSubtask(s.id, { done: e.target.checked }))}
               />
               <span className="st">{s.title}</span>
-              <SubtaskState state={s.state} done={s.done} show={!!taskId} />
-              {s.log.length > 0 && (
-                <div className="log">
-                  {s.log.map((l, i) => (
-                    <div key={i} className={s.state === 'running' && i === s.log.length - 1 ? 'cur' : ''}>
-                      {l.text}
-                    </div>
-                  ))}
-                </div>
+              {taskId && (
+                <SubtaskAction
+                  state={s.state}
+                  done={s.done}
+                  run={runOf(s.id)}
+                  onRun={() => void act(api.runSubtask(s.id))}
+                  onStop={(runId) => void act(api.stopRun(runId))}
+                />
               )}
+              {s.log.length > 0 && <LogBox lines={s.log} live={s.state === 'running'} />}
             </div>
           ))
         ) : (
@@ -552,24 +568,67 @@ function Subtasks({
         />
         <button className="btn">Добавить</button>
       </form>
+      {task && (task.taskLog.length > 0 || taskRun) && (
+        <div style={{ marginTop: 12 }}>
+          <h3>
+            Агент по задаче целиком
+            <span className="sp" />
+            {taskRun && (
+              <button className="btn sm" onClick={() => void act(api.stopRun(taskRun.id))}>
+                ■ Стоп
+              </button>
+            )}
+          </h3>
+          <LogBox lines={task.taskLog} live={taskRun?.status === 'running'} />
+        </div>
+      )}
     </div>
   );
 }
 
-function SubtaskState({ state, done, show }: { state: Subtask['state']; done: boolean; show: boolean }) {
-  if (!show) return null;
-  if (state === 'running')
+/** Лог прогона: всегда прокручен к последней строке, как в макете. */
+function LogBox({ lines, live }: { lines: Subtask['log']; live: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
+  }, [lines.length]);
+  return (
+    <div className="log" ref={ref}>
+      {lines.map((l, i) => (
+        <div key={i} className={live && i === lines.length - 1 ? 'cur' : ''}>
+          {l.text}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Справа в строке сабтаски: ▶ Агент / ■ Стоп / в очереди / готово (как в макете). */
+function SubtaskAction({
+  state,
+  done,
+  run: r,
+  onRun,
+  onStop,
+}: {
+  state: Subtask['state'];
+  done: boolean;
+  run: RunInfo | undefined;
+  onRun: () => void;
+  onStop: (runId: string) => void;
+}) {
+  if (r)
     return (
-      <span className="working" style={{ marginLeft: 0 }}>
-        <span className="dot live" />
-        агент работает
-      </span>
-    );
-  if (state === 'failed')
-    return (
-      <span className="hint" style={{ fontSize: 12, color: 'var(--danger)' }}>
-        не вышло
-      </span>
+      <>
+        {r.status === 'queued' && (
+          <span className="hint" style={{ fontSize: 12 }}>
+            в очереди
+          </span>
+        )}
+        <button className="btn sm" onClick={() => onStop(r.id)}>
+          ■ Стоп
+        </button>
+      </>
     );
   if (done)
     return (
@@ -577,7 +636,26 @@ function SubtaskState({ state, done, show }: { state: Subtask['state']; done: bo
         готово
       </span>
     );
-  return null;
+  // сабтаску ведёт агент, подключённый через MCP — остановить его доска не может
+  if (state === 'running')
+    return (
+      <span className="working" style={{ marginLeft: 0 }}>
+        <span className="dot live" />
+        агент работает
+      </span>
+    );
+  return (
+    <>
+      {state === 'failed' && (
+        <span className="hint" style={{ fontSize: 12, color: 'var(--danger)' }}>
+          не вышло
+        </span>
+      )}
+      <button className="btn sm agent" onClick={onRun}>
+        ▶ Агент
+      </button>
+    </>
+  );
 }
 
 function History({ task }: { task: TaskDetail }) {

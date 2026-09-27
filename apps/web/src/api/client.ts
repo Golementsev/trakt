@@ -11,6 +11,7 @@ import type {
   MoveTaskInput,
   Project,
   ProjectSummary,
+  RunInfo,
   Status,
   Subtask,
   TaskCard,
@@ -104,4 +105,8 @@ export const api = {
 
   addSubtask: (taskId: string, title: string) => post<Subtask>(`/tasks/${taskId}/subtasks`, { title }),
   updateSubtask: (id: string, b: UpdateSubtaskInput) => patch<Subtask>(`/subtasks/${id}`, b),
+
+  runTask: (taskId: string) => post<RunInfo[]>(`/tasks/${taskId}/run`),
+  runSubtask: (subtaskId: string) => post<RunInfo>(`/subtasks/${subtaskId}/run`),
+  stopRun: (runId: string) => post<{ ok: true }>(`/runs/${runId}/stop`),
 };
