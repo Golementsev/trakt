@@ -170,3 +170,64 @@ export interface AiStatus {
   /** Что сделать, чтобы включить AI. */
   hint: string | null;
 }
+
+/** Агент, подключённый к доске по MCP (pull-режим). */
+export interface McpClientInfo {
+  id: string;
+  /** clientInfo.name: «claude-code», «codex-mcp-client», «cursor»… */
+  name: string;
+  version: string | null;
+  connectedAt: string;
+  lastSeenAt: string;
+  /** Последний вызов: «claim_task PAY-12». */
+  lastAction: string | null;
+}
+
+export type RunnerSourceId = 'claude-cli' | 'codex-cli' | 'custom';
+export type AiMode = 'auto' | 'cli' | 'api' | 'off';
+
+/** Источник, который доска может запустить сама (кнопка «▶ Агент»). */
+export interface RunnerSource {
+  id: RunnerSourceId;
+  label: string;
+  /** Имя в ленте. */
+  agentName: string;
+  command: string | null;
+  /** null — не проверяли (своя команда). */
+  installed: boolean | null;
+  version: string | null;
+}
+
+export interface ActiveRun {
+  id: string;
+  task: string;
+  taskTitle: string;
+  subtask: string | null;
+  agentName: string;
+  status: 'running' | 'queued';
+}
+
+export interface AgentsOverview {
+  runner: {
+    selected: RunnerSourceId;
+    customCommand: string;
+    sources: RunnerSource[];
+  };
+  ai: {
+    mode: AiMode;
+    /** Чем реально отвечаем сейчас (с учётом «авто»), или null. */
+    effective: string | null;
+    apiKey: boolean;
+    cli: boolean;
+    hint: string | null;
+  };
+  clients: McpClientInfo[];
+  runs: ActiveRun[];
+  mcpUrl: string;
+}
+
+export interface CheckResult {
+  ok: boolean;
+  message: string;
+  ms: number;
+}

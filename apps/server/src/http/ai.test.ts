@@ -25,7 +25,7 @@ function fakeAi(answer: string, prompts: string[] = []): AiProvider {
 function make(ai: AiProvider | null) {
   const ctx = createCtx(new Db(':memory:'));
   seedDemo(ctx);
-  const app = createApp({ ctx, ai });
+  const app = createApp({ ctx, ai: () => ai });
   const pay = ctx.db.get<{ id: string }>("SELECT id FROM projects WHERE key = 'PAY'")!.id;
   const req = (method: string, url: string, body?: unknown) =>
     app.request(`/api${url}`, {

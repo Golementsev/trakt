@@ -114,3 +114,13 @@ export const aiGenerateInput = z.object({
   text: z.string().trim().min(1).max(4000),
 });
 export type CreateIdeaInput = z.infer<typeof createIdeaInput>;
+
+export const updateAgentsInput = z.object({
+  runner: z.enum(['claude-cli', 'codex-cli', 'custom']).optional(),
+  customCommand: z.string().max(2000).optional(),
+  ai: z.enum(['auto', 'cli', 'api', 'off']).optional(),
+});
+export const checkAgentInput = z.object({
+  target: z.enum(['claude-cli', 'codex-cli', 'custom', 'ai']),
+});
+export type UpdateAgentsInput = z.infer<typeof updateAgentsInput>;

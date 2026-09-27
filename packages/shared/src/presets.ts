@@ -3,8 +3,10 @@
  * Плейсхолдеры: {mcpConfigFile} — JSON с подключением к доске, {mcpUrl}, {promptFile},
  * {repoPath}, {task} (PAY-12), {subtask} (id). Пути подставляются в кавычках.
  */
+import type { RunnerSourceId } from './api';
+
 export interface AgentPreset {
-  id: string;
+  id: Exclude<RunnerSourceId, 'custom'>;
   label: string;
   /** Имя агента в ленте. */
   agentName: string;
@@ -13,14 +15,14 @@ export interface AgentPreset {
 
 export const AGENT_PRESETS: readonly AgentPreset[] = [
   {
-    id: 'claude',
-    label: 'Claude Code',
+    id: 'claude-cli',
+    label: 'Claude Code CLI',
     agentName: 'Claude Code',
     command:
       'claude -p --output-format stream-json --verbose --mcp-config {mcpConfigFile} --allowedTools mcp__trakt --permission-mode acceptEdits',
   },
   {
-    id: 'codex',
+    id: 'codex-cli',
     label: 'Codex CLI',
     agentName: 'Codex',
     command: 'codex exec --full-auto -',

@@ -21,6 +21,8 @@ import {
   updateTaskInput,
   updateTypeInput,
   aiGenerateInput,
+  checkAgentInput,
+  updateAgentsInput,
   aiSplitInput,
   createIdeaInput,
   type LiveMessage,
@@ -30,6 +32,8 @@ import * as d from '../domain';
 import { mcpHandler } from '../mcp/http';
 import type { Runner } from '../runner/runner';
 import { statusOf, type AiProvider } from '../ai/provider';
+import type { AgentsService } from '../agents/service';
+import type { McpRegistry } from '../mcp/registry';
 import { ideaPrompt, parseSubtasks, splitPrompt } from '../ai/prompts';
 import { localOnly } from './guard';
 import { serveWeb } from './static';
@@ -43,7 +47,11 @@ export interface AppOptions {
   /** Запуск агентов кнопкой «▶ Агент». Без него (тесты) — только ручная доска и MCP. */
   runner?: Runner;
   /** Источник модели для «✦ Разбить с AI» и идей. null — AI недоступен. */
-  ai?: AiProvider | null;
+  ai?: () => AiProvider | null;
+  /** Источники агентов (страница «Агенты»). */
+  agents?: AgentsService;
+  /** Кто подключён по MCP. */
+  registry?: McpRegistry;
 }
 
 export interface AgentConnectInfo {
@@ -56,7 +64,9 @@ async function body<S extends z.ZodType>(c: Context, schema: S): Promise<z.infer
   return schema.parse(raw);
 }
 
-export function createApp({ ctx, webDist, connect, runner, ai = null }: AppOptions) {
+export function createApp({ ctx, webDist, connect, runner, ai, agents, registry }: AppOptions) {
+  /** AI выбирается на каждый запрос: источник можно сменить в UI без перезапуска. */
+  const currentAi = (): AiProvider | null => (ai ? ai() : (agents?.aiProvider() ?? null));
   const app = new Hono();
   app.use('*', localOnly);
   const api = new Hono();
@@ -197,15 +207,30 @@ export function createApp({ ctx, webDist, connect, runner, ai = null }: AppOptio
 
   // AI-функции доски
   const needAi = () => {
-    if (!ai) throw d.invalid(statusOf(null).hint!);
-    return ai;
+    const provider = currentAi();
+    if (!provider) throw d.invalid(statusOf(null).hint!);
+    return provider;
   };
   const suggestSubtasks = async (task: { title: string; description: string; fields?: string[] }) => {
     const titles = parseSubtasks(await needAi().generate(splitPrompt(task)));
     if (!titles.length) throw d.invalid('AI не предложил сабтаски — попробуйте ещё раз');
     return titles;
   };
-  api.get('/ai', (c) => c.json(statusOf(ai)));
+  api.get('/ai', (c) => c.json(statusOf(currentAi())));
+
+  // источники агентов
+  const needAgents = () => {
+    if (!agents) throw d.invalid('Настройка агентов недоступна');
+    return agents;
+  };
+  api.get('/agents', async (c) => c.json(await needAgents().overview()));
+  api.put('/agents', async (c) => {
+    d.updateAgentsConfig(ctx, await body(c, updateAgentsInput));
+    return c.json(await needAgents().overview());
+  });
+  api.post('/agents/check', async (c) =>
+    c.json(await needAgents().check((await body(c, checkAgentInput)).target)),
+  );
   api.post('/ai/split', async (c) => {
     const input = await body(c, aiSplitInput);
     return c.json({
@@ -299,7 +324,7 @@ export function createApp({ ctx, webDist, connect, runner, ai = null }: AppOptio
   app.route('/api', api);
 
   // MCP для агентов (Streamable HTTP)
-  app.all('/mcp', mcpHandler(ctx));
+  app.all('/mcp', mcpHandler(ctx, registry));
 
   if (webDist) app.get('*', serveWeb(webDist));
 

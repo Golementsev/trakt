@@ -1,7 +1,7 @@
 import { execFileSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { agentNameForCommand, ACTOR_YOU, type RunInfo } from '@trakt/shared';
+import { ACTOR_YOU, type ActiveRun, type RunInfo } from '@trakt/shared';
 import * as d from '../domain';
 import { killTree, lineSplitter, spawnShell } from './process';
 import { parseOutputLine } from './output';
@@ -96,6 +96,29 @@ export class Runner {
         agentName: q.agentName,
       })),
     ];
+  }
+
+  /** Все прогоны доски — для страницы «Агенты». */
+  allRuns(): ActiveRun[] {
+    const info = (x: Pending, status: ActiveRun['status']): ActiveRun | null => {
+      try {
+        const t = d.getTaskRow(this.ctx, x.taskId);
+        return {
+          id: x.id,
+          task: d.taskKey(this.ctx, t),
+          taskTitle: t.title,
+          subtask: x.subtaskId ? d.getSubtaskRow(this.ctx, x.subtaskId).title : null,
+          agentName: x.agentName,
+          status,
+        };
+      } catch {
+        return null;
+      }
+    };
+    return [
+      ...[...this.active.values()].map((a) => info(a, 'running')),
+      ...this.queue.map((q) => info(q, 'queued')),
+    ].filter((x): x is ActiveRun => x !== null);
   }
 
   // ---------- команды ----------
@@ -201,7 +224,7 @@ export class Runner {
   // ---------- внутреннее ----------
 
   private takeAutomatically(t: d.TaskRow, statuses: ReturnType<typeof d.listStatuses>) {
-    const agent = this.agentName(t.project_id);
+    const agent = this.agentName();
     const key = d.taskKey(this.ctx, t);
     try {
       d.agentClaimTask(this.ctx, key, agent, RUN_CLAIM_MINUTES);
@@ -231,8 +254,9 @@ export class Runner {
     );
   }
 
-  private agentName(projectId: string) {
-    return agentNameForCommand(d.getAgentSettings(this.ctx, projectId).runCommand);
+  /** Имя в ленте — по источнику, выбранному на странице «Агенты». */
+  private agentName() {
+    return d.runnerAgentName(d.getAgentsConfig(this.ctx));
   }
 
   private isConfigured(projectId: string) {
@@ -249,13 +273,14 @@ export class Runner {
     const p = d.getProjectRow(this.ctx, projectId);
     const s = d.getAgentSettings(this.ctx, projectId);
     if (!p.repo_path)
-      throw d.invalid('Укажите папку проекта в «Настройки → Агент» — там агент будет работать.');
+      throw d.invalid('Укажите папку проекта в «Настройки → Агент» — в ней агент будет работать.');
     if (!existsSync(p.repo_path) || !statSync(p.repo_path).isDirectory())
       throw d.invalid(`Папка проекта не найдена: ${p.repo_path}`);
-    if (!s.runCommand) throw d.invalid('Укажите команду запуска агента в «Настройки → Агент».');
+    const command = d.runnerCommand(d.getAgentsConfig(this.ctx));
+    if (!command) throw d.invalid('Выберите, кто запускается кнопкой «▶ Агент», на странице «Агенты».');
     return {
       repoPath: p.repo_path,
-      command: s.runCommand,
+      command,
       useWorktree: s.useWorktree,
       maxParallel: s.maxParallel,
     };
@@ -268,7 +293,7 @@ export class Runner {
       taskId: t.id,
       subtaskId,
       projectId: t.project_id,
-      agentName: this.agentName(t.project_id),
+      agentName: this.agentName(),
     };
     this.queue.push(item);
     return item;

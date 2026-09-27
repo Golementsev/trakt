@@ -7,7 +7,8 @@ import { createCtx, seedDemo } from './domain';
 import { createApp } from './http/app';
 import { Runner } from './runner/runner';
 import { dbPath, repoRoot, webDist } from './paths';
-import { detectProvider } from './ai/provider';
+import { AgentsService } from './agents/service';
+import { McpRegistry } from './mcp/registry';
 
 // ключ Anthropic и прочие переменные можно держать в .env в корне доски
 const envFile = resolve(repoRoot, '.env');
@@ -22,7 +23,9 @@ const stdioEntry = resolve(repoRoot, 'apps/server/dist/trakt-mcp.js');
 const mcpUrl = `http://${DEFAULT_HOST}:${port}/mcp`;
 const runner = new Runner(ctx, { mcpUrl, workDir: resolve(dirname(dbPath), 'runs'), autoTakeMs: 10_000 });
 runner.start();
-const ai = detectProvider();
+const registry = new McpRegistry();
+const agents = new AgentsService(ctx, { registry, mcpUrl, runner });
+const ai = agents.aiProvider();
 const app = createApp({
   ctx,
   webDist: existsSync(webDist) ? webDist : undefined,
@@ -31,7 +34,8 @@ const app = createApp({
     stdio: { command: 'node', args: [stdioEntry], built: existsSync(stdioEntry) },
   }),
   runner,
-  ai,
+  agents,
+  registry,
 });
 
 const server = serve({ fetch: app.fetch, hostname: DEFAULT_HOST, port }, (info) => {

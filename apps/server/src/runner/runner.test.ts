@@ -15,7 +15,7 @@ function env(args = '', opts: { subtasks?: string[]; configure?: boolean } = {})
   const repo = mkdtempSync(join(tmpdir(), 'trakt-repo-'));
   if (opts.configure !== false) {
     d.updateProject(e.ctx, e.projectId, { repoPath: repo });
-    d.updateAgentSettings(e.ctx, e.projectId, { runCommand: `node "${fake}" ${args}` });
+    d.updateAgentsConfig(e.ctx, { runner: 'custom', customCommand: `node "${fake}" ${args}` });
   }
   const runner = new Runner(e.ctx, {
     mcpUrl: 'http://127.0.0.1:4700/mcp',

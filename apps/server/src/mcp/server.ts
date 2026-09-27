@@ -32,7 +32,8 @@ const fail = (e: unknown): CallToolResult => ({
 const agentArg = z.string().optional().describe('Имя агента для ленты. По умолчанию — имя MCP-клиента.');
 
 /** MCP-сервер доски. Каждый инструмент — тонкая обёртка над доменом. */
-export function createMcpServer(ctx: d.Ctx): McpServer {
+/** onCall — отметить активность сессии («claim_task PAY-12») для страницы «Агенты». */
+export function createMcpServer(ctx: d.Ctx, onCall?: (action: string) => void): McpServer {
   const server = new McpServer({ name: 'trakt', version: '0.1.0' }, { instructions: MCP_INSTRUCTIONS });
 
   /** Имя агента: параметр agent → clientInfo.name → «Агент». */
@@ -51,6 +52,9 @@ export function createMcpServer(ctx: d.Ctx): McpServer {
       { description, inputSchema: shape, annotations: { readOnlyHint: readOnly } },
       // SDK типизирует аргументы по shape; приводим к нашему выводу zod
       ((args: z.infer<z.ZodObject<S>>) => {
+        const ref =
+          (args as { task?: unknown; project?: unknown }).task ?? (args as { project?: unknown }).project;
+        onCall?.(typeof ref === 'string' ? `${name} ${ref}` : name);
         try {
           return ok(run(args));
         } catch (e) {

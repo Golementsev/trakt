@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import Anthropic from '@anthropic-ai/sdk';
 import { lineSplitter } from '../runner/process';
@@ -7,7 +7,7 @@ import { lineSplitter } from '../runner/process';
  * Источник модели для AI-функций доски («✦ Разбить с AI», идеи из «+»).
  * - api: Anthropic API (ANTHROPIC_API_KEY или ANTHROPIC_AUTH_TOKEN в окружении / .env);
  * - cli: установленный и авторизованный Claude Code (`claude -p`);
- * Выбор: TRAKT_AI=api|cli|off, по умолчанию — api, если есть ключ, иначе cli, если найден `claude`.
+ * Какой из них отвечает — выбирается на странице «Агенты» (см. agents/service.ts).
  */
 export interface AiProvider {
   id: 'api' | 'cli';
@@ -115,21 +115,6 @@ export function cliProvider(command = process.env.TRAKT_AI_CLI || 'claude'): AiP
       });
     },
   };
-}
-
-/** Выбрать источник модели по окружению. null — AI недоступен. */
-export function detectProvider(env = process.env): AiProvider | null {
-  const mode = env.TRAKT_AI?.toLowerCase();
-  if (mode === 'off') return null;
-  const hasKey = !!(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN);
-  if (mode === 'api' || (!mode && hasKey)) return apiProvider();
-  if (mode === 'cli' || !mode) {
-    const cmd = env.TRAKT_AI_CLI || 'claude';
-    const ok =
-      spawnSync(`${cmd} --version`, { shell: true, windowsHide: true, timeout: 10_000 }).status === 0;
-    if (ok) return cliProvider(cmd);
-  }
-  return null;
 }
 
 export function statusOf(provider: AiProvider | null): AiStatus {
