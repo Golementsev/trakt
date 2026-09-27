@@ -20,7 +20,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "seed": "npm run seed -w @trakt/server"
+    "seed": "npm run seed -w @trakt/server",
+    "backup": "npm run backup -w @trakt/server"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

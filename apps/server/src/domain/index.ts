@@ -12,3 +12,4 @@ export * from './agentPolicy';
 export * from './agent';
 export * from './seed';
 export * from './ideas';
+export * from './backup';

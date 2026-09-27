@@ -71,6 +71,11 @@ export function createApp({ ctx, webDist, connect, runner, ai = null }: AppOptio
 
   api.get('/health', (c) => c.json({ ok: true }));
   api.get('/agent/connect', (c) => c.json(connect?.() ?? null));
+  api.get('/export', (c) => {
+    const date = new Date().toLocaleDateString('sv-SE'); // ГГГГ-ММ-ДД по местному времени
+    c.header('Content-Disposition', 'attachment; filename="trakt-' + date + '.json"');
+    return c.json(d.exportAll(ctx));
+  });
 
   // глобальные настройки
   api.get('/settings', (c) => c.json(d.getAppSettings(ctx)));
