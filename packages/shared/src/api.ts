@@ -17,6 +17,8 @@ export interface Project {
   name: string;
   repoPath: string | null;
   dod: string;
+  /** Номер, который получит следующая задача. */
+  nextNumber: number;
 }
 
 export interface Status {

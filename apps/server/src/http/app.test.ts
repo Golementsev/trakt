@@ -69,5 +69,7 @@ describe('http api', () => {
     const board: Board = await read(app.request(`/api/projects/${projects[0]!.id}/board`));
     const pay12 = board.tasks.find((t) => t.key === 'PAY-12')!;
     expect(pay12.subtasks).toEqual({ done: 1, total: 4 });
+    const events = await read(app.request(`/api/projects/${projects[0]!.id}/events`));
+    expect(events.map((e: { actor: string }) => e.actor)).toEqual(['Агент', 'Агент']);
   });
 });

@@ -30,6 +30,7 @@ export const toProject = (r: ProjectRow): Project => ({
   name: r.name,
   repoPath: r.repo_path,
   dod: r.dod,
+  nextNumber: r.next_number,
 });
 
 export function getProjectRow(ctx: Ctx, id: string): ProjectRow {

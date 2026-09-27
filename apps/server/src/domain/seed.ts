@@ -164,6 +164,9 @@ export function seedDemo(ctx: Ctx): boolean {
         });
       }
     }
+    // база была пустой: служебные «создали/отдали» от сида в ленте не нужны,
+    // оставляем только пару событий агента, как в макете
+    ctx.db.run('DELETE FROM events');
     const pay = ctx.db.get<{ id: string }>("SELECT id FROM projects WHERE key = 'PAY'")!;
     const task = (n: number) =>
       getTaskRow(
